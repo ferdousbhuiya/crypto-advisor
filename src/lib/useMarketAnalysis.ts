@@ -13,14 +13,16 @@ interface State {
 
 const COIN_LIMIT = 12
 
+// The backend proxy serializes + caches upstream CoinGecko calls, so it's
+// safe to fire all coin requests concurrently here instead of spacing them
+// out client-side — that spacing used to be the only rate-limit defense
+// when the client hit CoinGecko directly.
 async function analyzeWithHistory(coin: Parameters<typeof analyzeCoin>[0]): Promise<CoinAnalysis> {
   let history: number[] | null = null
-  for (let attempt = 0; attempt < 2 && history === null; attempt++) {
-    try {
-      history = await fetchPriceHistory(coin.id, 30)
-    } catch {
-      await new Promise((r) => setTimeout(r, 12000))
-    }
+  try {
+    history = await fetchPriceHistory(coin.id, 30)
+  } catch {
+    /* fall back to a single current-price point below */
   }
   return analyzeCoin(coin, history ?? [coin.current_price])
 }
@@ -40,23 +42,27 @@ export function useMarketAnalysis(extraCoinIds: string[] = []) {
 
     async function run() {
       try {
-        let markets: CoinMarket[]
+        let markets: CoinMarket[] | undefined
         for (let attempt = 0; ; attempt++) {
           try {
             markets = await fetchTopMarkets(COIN_LIMIT)
             break
           } catch (e) {
             if (attempt >= 2) throw e
-            await new Promise((r) => setTimeout(r, 15000))
+            await new Promise((r) => setTimeout(r, 5000))
           }
         }
+
         const results: CoinAnalysis[] = []
-        for (let i = 0; i < markets.length; i++) {
-          if (cancelled) return
-          results.push(await analyzeWithHistory(markets[i]))
-          if (!cancelled) setState((s) => ({ ...s, progress: i + 1 }))
-          await new Promise((r) => setTimeout(r, 5000))
-        }
+        await Promise.all(
+          markets.map(async (coin) => {
+            const analysis = await analyzeWithHistory(coin)
+            if (cancelled) return
+            results.push(analysis)
+            setState((s) => ({ ...s, progress: s.progress + 1 }))
+          }),
+        )
+
         if (!cancelled) {
           setState((s) => ({
             ...s,
@@ -93,17 +99,12 @@ export function useMarketAnalysis(extraCoinIds: string[] = []) {
     async function fetchMissing() {
       try {
         const markets = await fetchMarketsByIds(missing)
-        const added: CoinAnalysis[] = []
-        for (const coin of markets) {
-          if (cancelled) return
-          added.push(await analyzeWithHistory(coin))
-          await new Promise((r) => setTimeout(r, 3000))
-        }
+        const added = await Promise.all(markets.map((coin) => analyzeWithHistory(coin)))
         if (!cancelled && added.length > 0) {
           setState((s) => ({ ...s, allAnalyses: [...s.allAnalyses, ...added] }))
         }
       } catch {
-        // held coin lookup failed — portfolio row will show "no data" until next reload
+        // held coin lookup failed — portfolio row will show "loading…" until next reload
       }
     }
 

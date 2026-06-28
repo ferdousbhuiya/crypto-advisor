@@ -50,10 +50,10 @@ export function AuthPanel() {
         />
         <button
           onClick={submit}
-          disabled={busy || !form.email || form.password.length < 8}
+          disabled={busy || !form.email || !form.password}
           className="bg-purple-600 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm px-3 py-1 rounded"
         >
-          {mode === 'login' ? 'Log in' : 'Sign up'}
+          {busy ? 'Working…' : mode === 'login' ? 'Log in' : 'Sign up'}
         </button>
         <button
           onClick={() => setMode((m) => (m === 'login' ? 'signup' : 'login'))}
