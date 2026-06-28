@@ -35,8 +35,8 @@ async function withRetry<T>(fetcher: () => Promise<T>): Promise<T> {
       return await enqueue(fetcher)
     } catch (e) {
       const status = axios.isAxiosError(e) ? e.response?.status : undefined
-      if (status === 429 && attempt < 2) {
-        await new Promise((r) => setTimeout(r, 10_000))
+      if (status === 429 && attempt < 3) {
+        await new Promise((r) => setTimeout(r, 20_000))
         continue
       }
       throw e
