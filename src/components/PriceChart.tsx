@@ -73,7 +73,7 @@ export function PriceChart({ coinId }: { coinId: string }) {
             <Tooltip
               contentStyle={{ background: '#0f172a', border: '1px solid #334155' }}
               labelFormatter={(t) => new Date(t).toLocaleString()}
-              formatter={(v: number) => [`$${v.toLocaleString(undefined, { maximumFractionDigits: 4 })}`, 'Price']}
+              formatter={(v) => [`$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 4 })}`, 'Price']}
             />
             <Line type="monotone" dataKey="price" stroke="#c084fc" strokeWidth={2} dot={false} />
           </LineChart>
