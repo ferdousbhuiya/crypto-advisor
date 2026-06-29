@@ -7,6 +7,7 @@ import { PortfolioPanel } from './components/PortfolioPanel'
 import { PriceChart } from './components/PriceChart'
 import { TodaySuggestion } from './components/TodaySuggestion'
 import { AuthPanel } from './components/AuthPanel'
+import { CoinLookup } from './components/CoinLookup'
 
 function fmt(n: number | null | undefined, digits = 2) {
   if (n === null || n === undefined || Number.isNaN(n)) return '—'
@@ -86,8 +87,9 @@ function App() {
     holdings.map((h) => h.coinId),
   )
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [lookup, setLookup] = useState<CoinAnalysis | null>(null)
 
-  const selected = analyses.find((a) => a.coin.id === selectedId) ?? analyses[0]
+  const selected = lookup ?? analyses.find((a) => a.coin.id === selectedId) ?? analyses[0]
   const topPick = analyses[0]
 
   return (
@@ -102,6 +104,8 @@ function App() {
         <AuthPanel />
 
         <PortfolioPanel allAnalyses={allAnalyses} />
+
+        <CoinLookup onFound={setLookup} />
 
         {loading && (
           <div className="text-slate-300">
@@ -157,7 +161,10 @@ function App() {
                   return (
                     <tr
                       key={a.coin.id}
-                      onClick={() => setSelectedId(a.coin.id)}
+                      onClick={() => {
+                        setLookup(null)
+                        setSelectedId(a.coin.id)
+                      }}
                       className={`cursor-pointer border-t border-slate-800 hover:bg-slate-800 ${
                         selected?.coin.id === a.coin.id ? 'bg-slate-800' : ''
                       }`}

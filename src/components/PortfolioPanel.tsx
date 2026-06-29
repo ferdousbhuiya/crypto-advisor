@@ -94,14 +94,15 @@ function AddHoldingForm({ onAdd }: { onAdd: (h: Holding) => void }) {
 }
 
 export function PortfolioPanel({ allAnalyses }: { allAnalyses: CoinAnalysis[] }) {
-  const { holdings, addHolding, removeHolding } = usePortfolio()
+  const { holdings, addHolding, removeHolding, loaded } = usePortfolio()
 
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 mb-6">
       <h2 className="text-lg font-semibold text-white mb-2">Your holdings</h2>
       <AddHoldingForm onAdd={addHolding} />
-      {holdings.length === 0 && <p className="text-slate-500 text-sm">No holdings added yet.</p>}
-      {holdings.length > 0 && (
+      {!loaded && <p className="text-slate-500 text-sm">Loading holdings…</p>}
+      {loaded && holdings.length === 0 && <p className="text-slate-500 text-sm">No holdings added yet.</p>}
+      {loaded && holdings.length > 0 && (
         <table className="w-full text-sm">
           <thead className="text-slate-400">
             <tr>

@@ -31,6 +31,7 @@ export function usePortfolio() {
       setLoaded(true)
       return
     }
+    setHoldings([])
     setLoaded(false)
     axios
       .get<Holding[]>('/api/holdings', { headers: { Authorization: `Bearer ${token}` } })

@@ -12,7 +12,14 @@ export function AuthPanel() {
     return (
       <div className="flex items-center gap-3 text-sm text-slate-300 mb-4">
         Signed in as <span className="text-white font-medium">{email}</span>
-        <button onClick={logout} className="text-slate-500 hover:text-red-400">
+        <button
+          onClick={() => {
+            logout()
+            setForm({ email: '', password: '' })
+            setError(null)
+          }}
+          className="text-slate-500 hover:text-red-400"
+        >
           log out
         </button>
       </div>
