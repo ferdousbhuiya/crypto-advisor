@@ -11,7 +11,8 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function fmtMoney(n: number, digits = 2) {
+function fmtMoney(n: number | null | undefined, digits = 2) {
+  if (n === null || n === undefined || Number.isNaN(n)) return '0.00'
   return n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits })
 }
 
@@ -193,8 +194,8 @@ export function PortfolioPanel({ allAnalyses }: { allAnalyses: CoinAnalysis[] })
   const totals = holdings.reduce(
     (acc, h) => {
       const a = allAnalyses.find((x) => x.coin.id === h.coinId)
-      const invested = h.amount * h.purchasePrice
-      const current = a ? a.coin.current_price * h.amount : null
+      const invested = (h.amount || 0) * (h.purchasePrice || 0)
+      const current = a && a.coin.current_price != null ? a.coin.current_price * (h.amount || 0) : null
       acc.invested += invested
       if (current !== null) acc.current += current
       if (current === null) acc.missing = true
@@ -233,8 +234,8 @@ export function PortfolioPanel({ allAnalyses }: { allAnalyses: CoinAnalysis[] })
               {holdings.map((h) => {
                 const a = allAnalyses.find((x) => x.coin.id === h.coinId)
                 const v = a ? getVerdict(a) : null
-                const invested = h.amount * h.purchasePrice
-                const current = a ? a.coin.current_price * h.amount : null
+                const invested = (h.amount || 0) * (h.purchasePrice || 0)
+                const current = a && a.coin.current_price != null ? a.coin.current_price * (h.amount || 0) : null
                 const pnl = current !== null ? current - invested : null
                 const pnlPct = current !== null && invested > 0 ? (pnl! / invested) * 100 : null
                 return (
