@@ -23,9 +23,9 @@ model Holding {
   symbol        String
   name          String
   amount        Float
-  purchasePrice Float
-  purchaseDate  DateTime
-  platform      String
+  purchasePrice Float    @default(0)
+  purchaseDate  DateTime @default(now())
+  platform      String   @default("Unknown")
   createdAt     DateTime @default(now())
 
   @@index([userId, coinId])
