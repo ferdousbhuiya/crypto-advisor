@@ -3,31 +3,28 @@ import { useEffect, useState } from 'react'
 import { useAuth } from './AuthContext'
 
 export interface Holding {
+  id: string
   coinId: string
   symbol: string
   name: string
   amount: number
+  purchasePrice: number
+  purchaseDate: string
+  platform: string
 }
 
-const STORAGE_KEY = 'crypto-advisor-holdings'
-
-function loadLocal(): Holding[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
-}
+export type NewHolding = Omit<Holding, 'id'>
 
 export function usePortfolio() {
   const { token } = useAuth()
-  const [holdings, setHoldings] = useState<Holding[]>(loadLocal)
-  const [loaded, setLoaded] = useState(!token)
+  const [holdings, setHoldings] = useState<Holding[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token) {
-      setHoldings(loadLocal())
+      // No account signed in: no holdings are shown or stored anywhere.
+      setHoldings([])
       setLoaded(true)
       return
     }
@@ -39,38 +36,27 @@ export function usePortfolio() {
       .finally(() => setLoaded(true))
   }, [token])
 
-  useEffect(() => {
-    if (!token) localStorage.setItem(STORAGE_KEY, JSON.stringify(holdings))
-  }, [holdings, token])
-
-  async function addHolding(h: Holding) {
-    if (!token) {
-      setHoldings((prev) => {
-        const existing = prev.find((p) => p.coinId === h.coinId)
-        if (existing) {
-          return prev.map((p) => (p.coinId === h.coinId ? { ...p, amount: p.amount + h.amount } : p))
-        }
-        return [...prev, h]
+  async function addHolding(h: NewHolding): Promise<string | null> {
+    if (!token) return 'Sign in first'
+    try {
+      const { data } = await axios.post<Holding>('/api/holdings', h, {
+        headers: { Authorization: `Bearer ${token}` },
       })
-      return
+      setHoldings((prev) => [data, ...prev])
+      setError(null)
+      return null
+    } catch (e) {
+      const msg = axios.isAxiosError(e) ? e.response?.data?.error ?? 'Could not add holding' : 'Could not add holding'
+      setError(msg)
+      return msg
     }
-    const { data } = await axios.post<Holding>('/api/holdings', h, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    setHoldings((prev) => {
-      const without = prev.filter((p) => p.coinId !== data.coinId)
-      return [...without, data]
-    })
   }
 
-  async function removeHolding(coinId: string) {
-    if (!token) {
-      setHoldings((prev) => prev.filter((p) => p.coinId !== coinId))
-      return
-    }
-    await axios.delete(`/api/holdings/${coinId}`, { headers: { Authorization: `Bearer ${token}` } })
-    setHoldings((prev) => prev.filter((p) => p.coinId !== coinId))
+  async function removeHolding(id: string) {
+    if (!token) return
+    await axios.delete(`/api/holdings/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+    setHoldings((prev) => prev.filter((p) => p.id !== id))
   }
 
-  return { holdings, addHolding, removeHolding, loaded }
+  return { holdings, addHolding, removeHolding, loaded, error }
 }

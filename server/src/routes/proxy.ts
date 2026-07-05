@@ -106,6 +106,35 @@ proxyRouter.get('/search', async (req, res) => {
   }
 })
 
+// Coin detail endpoint, trimmed to just the community-sentiment fields
+// (sentiment_votes_up_percentage / down) so we get an extra, independent
+// "what are people actually voting" signal without pulling the heavy
+// market_data/tickers/developer_data payload CoinGecko normally attaches.
+proxyRouter.get('/coins/:id', async (req, res) => {
+  const key = `detail:${req.params.id}`
+  try {
+    const data = await cached(key, 30 * 60_000, async () => {
+      const { data } = await axios.get(`${CG_API}/coins/${req.params.id}`, {
+        params: {
+          localization: false,
+          tickers: false,
+          market_data: false,
+          community_data: true,
+          developer_data: false,
+          sparkline: false,
+        },
+      })
+      return {
+        sentiment_votes_up_percentage: data.sentiment_votes_up_percentage ?? null,
+        sentiment_votes_down_percentage: data.sentiment_votes_down_percentage ?? null,
+      }
+    })
+    res.json(data)
+  } catch (e) {
+    handleError(e, res)
+  }
+})
+
 proxyRouter.get('/fear-greed', async (_req, res) => {
   try {
     const data = await cached('fng', 30 * 60_000, async () => {

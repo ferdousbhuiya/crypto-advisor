@@ -3,11 +3,14 @@ import { useMarketAnalysis } from './lib/useMarketAnalysis'
 import type { CoinAnalysis } from './lib/scoring'
 import { getVerdict, type Verdict } from './lib/verdict'
 import { usePortfolio } from './lib/usePortfolio'
+import { useAuth } from './lib/AuthContext'
 import { PortfolioPanel } from './components/PortfolioPanel'
 import { PriceChart } from './components/PriceChart'
 import { TodaySuggestion } from './components/TodaySuggestion'
 import { AuthPanel } from './components/AuthPanel'
 import { CoinLookup } from './components/CoinLookup'
+import { useCoinSentiment } from './lib/useCoinSentiment'
+import { sentimentSignal } from './lib/sentiment'
 
 function fmt(n: number | null | undefined, digits = 2) {
   if (n === null || n === undefined || Number.isNaN(n)) return '—'
@@ -24,6 +27,8 @@ function verdictColor(v: Verdict) {
 
 function CoinDetail({ a }: { a: CoinAnalysis }) {
   const v = getVerdict(a)
+  const sentiment = useCoinSentiment(a.coin.id)
+  const sentimentNote = sentiment ? sentimentSignal(sentiment) : null
   const rows: [string, string][] = [
     ['Price (USD)', `$${fmt(a.coin.current_price, 4)}`],
     ['Market cap', `$${fmt(a.coin.market_cap, 0)}`],
@@ -46,12 +51,12 @@ function CoinDetail({ a }: { a: CoinAnalysis }) {
   ]
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 mt-4 text-left">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <img src={a.coin.image} alt="" className="w-6 h-6" />
         <h3 className="text-lg font-semibold text-white">
           {a.coin.name} ({a.coin.symbol.toUpperCase()})
         </h3>
-        <span className={`ml-auto px-2 py-1 rounded text-xs font-bold ${verdictColor(v.verdict)}`}>
+        <span className={`sm:ml-auto px-2 py-1 rounded text-xs font-bold ${verdictColor(v.verdict)}`}>
           {v.label} · score {a.score}
         </span>
       </div>
@@ -59,7 +64,7 @@ function CoinDetail({ a }: { a: CoinAnalysis }) {
 
       <PriceChart coinId={a.coin.id} />
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm mt-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-sm mt-4">
         {rows.map(([label, value]) => (
           <div key={label} className="flex justify-between border-b border-slate-800 py-1">
             <span className="text-slate-400">{label}</span>
@@ -77,11 +82,20 @@ function CoinDetail({ a }: { a: CoinAnalysis }) {
           </ul>
         </div>
       )}
+      {sentimentNote && (
+        <div className="mt-3 bg-slate-800/60 border border-slate-700 rounded p-3">
+          <p className="text-purple-300 text-xs uppercase tracking-wide font-bold mb-1">
+            বাড়তি সিগন্যাল · কমিউনিটি সেন্টিমেন্ট
+          </p>
+          <p className="text-slate-200 text-sm">{sentimentNote}</p>
+        </div>
+      )}
     </div>
   )
 }
 
 function App() {
+  const { token } = useAuth()
   const { holdings } = usePortfolio()
   const { loading, error, analyses, allAnalyses, progress, total } = useMarketAnalysis(
     holdings.map((h) => h.coinId),
@@ -92,10 +106,26 @@ function App() {
   const selected = lookup ?? analyses.find((a) => a.coin.id === selectedId) ?? analyses[0]
   const topPick = analyses[0]
 
+  if (!token) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-8 flex items-center justify-center">
+        <div className="w-full max-w-sm">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 text-center">Crypto Buy Advisor</h1>
+          <p className="text-slate-400 text-sm mb-6 text-center">
+            Sign in or create an account to see market signals and manage your holdings. Your
+            holdings are private to your account and are never stored on this device — closing
+            the browser or logging out clears everything.
+          </p>
+          <AuthPanel />
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-8">
+    <div className="min-h-screen bg-slate-950 text-slate-100 px-3 sm:px-4 py-6 sm:py-8">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold text-white mb-1">Crypto Buy Advisor</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Crypto Buy Advisor</h1>
         <p className="text-slate-400 text-sm mb-6">
           Ranks top coins by market cap using technical indicators computed from live CoinGecko
           data. Not financial advice — educational signal only.
@@ -126,10 +156,10 @@ function App() {
         {!loading && !error && topPick && (
           <div className="bg-gradient-to-br from-purple-900 to-slate-900 border border-purple-700 rounded-lg p-5 mb-6">
             <p className="text-purple-300 text-sm uppercase tracking-wide mb-1">Top suggestion (technical)</p>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <img src={topPick.coin.image} alt="" className="w-10 h-10" />
               <div>
-                <h2 className="text-2xl font-bold text-white">
+                <h2 className="text-xl sm:text-2xl font-bold text-white">
                   {topPick.coin.name} ({topPick.coin.symbol.toUpperCase()})
                 </h2>
                 <p className="text-slate-300 text-sm">
@@ -141,8 +171,8 @@ function App() {
         )}
 
         {!loading && !error && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border border-slate-800 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
+            <table className="w-full text-sm border border-slate-800 rounded-lg overflow-hidden min-w-[640px]">
               <thead className="bg-slate-900 text-slate-400">
                 <tr>
                   <th className="text-left p-2">#</th>

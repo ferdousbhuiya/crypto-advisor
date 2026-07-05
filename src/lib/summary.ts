@@ -2,33 +2,36 @@ import type { CoinAnalysis } from './scoring'
 import { getVerdict } from './verdict'
 import type { FearGreed } from './coingecko'
 
+// All advice/signal text below is in Bangla — most of this app's users read
+// Bangla, and this is the plain-language "what should I do" section.
+
 function plainMomentum(a: CoinAnalysis): string {
-  if (a.change7d > 5) return 'has been climbing strongly over the past week'
-  if (a.change7d > 0) return 'has edged up a little over the past week'
-  if (a.change7d > -5) return 'has been roughly flat over the past week'
-  if (a.change7d > -15) return 'has been sliding down over the past week'
-  return 'has dropped sharply over the past week'
+  if (a.change7d > 5) return 'গত এক সপ্তাহে বেশ ভালোভাবে উপরে উঠেছে'
+  if (a.change7d > 0) return 'গত এক সপ্তাহে সামান্য উপরে উঠেছে'
+  if (a.change7d > -5) return 'গত এক সপ্তাহে মোটামুটি স্থির ছিল'
+  if (a.change7d > -15) return 'গত এক সপ্তাহে নিচের দিকে নেমেছে'
+  return 'গত এক সপ্তাহে বড়সড় দরপতন হয়েছে'
 }
 
 function plainRsi(a: CoinAnalysis): string | null {
   if (a.rsi === null) return null
-  if (a.rsi < 20) return "it's been sold off so hard it may be due for a bounce"
-  if (a.rsi < 35) return "it's on the cheaper side compared to its recent range"
-  if (a.rsi > 80) return "it's been bought up so fast it may be due for a pullback"
-  if (a.rsi > 65) return "it's trading toward the expensive end of its recent range"
-  return "it's trading in a normal range, nothing extreme"
+  if (a.rsi < 20) return 'এত বেশি বিক্রি হয়ে গেছে যে এখন দাম আবার উঠতে পারে'
+  if (a.rsi < 35) return 'সাম্প্রতিক রেঞ্জের তুলনায় দাম এখন কিছুটা সস্তা'
+  if (a.rsi > 80) return 'এত দ্রুত কেনা হয়েছে যে এখন দাম কিছুটা কমতে পারে'
+  if (a.rsi > 65) return 'সাম্প্রতিক রেঞ্জের তুলনায় দাম এখন কিছুটা বেশি'
+  return 'দাম স্বাভাবিক রেঞ্জেই আছে, কোনো চরম অবস্থা নেই'
 }
 
 function plainLiquidity(a: CoinAnalysis): string {
-  if (a.volumeToMcap < 1) return 'Heads up: trading volume is thin, so prices can swing harder and it can be harder to sell quickly.'
-  if (a.volumeToMcap > 10) return "It's trading heavily right now, so buying or selling shouldn't be a problem."
+  if (a.volumeToMcap < 1) return 'সতর্কতা: ট্রেডিং ভলিউম কম, তাই দাম হঠাৎ বেশি ওঠানামা করতে পারে এবং দ্রুত বিক্রি করা কঠিন হতে পারে।'
+  if (a.volumeToMcap > 10) return 'এখন ভালো পরিমাণে ট্রেড হচ্ছে, তাই কেনা-বেচায় সমস্যা হওয়ার কথা না।'
   return ''
 }
 
 export function plainExplanation(a: CoinAnalysis): string {
   const parts = [
-    `${a.coin.name} ${plainMomentum(a)}.`,
-    plainRsi(a) ? `Right now, ${plainRsi(a)}.` : '',
+    `${a.coin.name} ${plainMomentum(a)}।`,
+    plainRsi(a) ? `এখন এই কয়েনের ক্ষেত্রে, ${plainRsi(a)}।` : '',
     plainLiquidity(a),
   ].filter(Boolean)
   return parts.join(' ')
@@ -46,19 +49,19 @@ export interface DailySummary {
 function fearGreedSentence(fg: FearGreed | null): string {
   if (!fg) return ''
   if (fg.value <= 25) {
-    return `Fear & Greed Index: ${fg.value}/100 (${fg.classification}). Investors are scared right now — history shows extreme fear is often when good buys appear, but it can also keep dropping. Don't bet the farm on this alone.`
+    return `Fear & Greed ইনডেক্স: ${fg.value}/100 (${fg.classification})। মানুষ এখন ভয় পাচ্ছে — ইতিহাস বলে চরম ভয়ের সময়ই প্রায়ই ভালো কেনার সুযোগ আসে, কিন্তু দাম আরো কমতেও পারে। শুধু এটার উপর ভরসা করে সব টাকা লাগাবেন না।`
   }
   if (fg.value >= 75) {
-    return `Fear & Greed Index: ${fg.value}/100 (${fg.classification}). Investors are very excited right now — that often means prices are stretched and a pullback is more likely soon.`
+    return `Fear & Greed ইনডেক্স: ${fg.value}/100 (${fg.classification})। মানুষ এখন খুব উত্তেজিত — এর মানে দাম বেশি বেড়ে গেছে এবং শীঘ্রই কিছুটা কমার সম্ভাবনা বেশি।`
   }
-  return `Fear & Greed Index: ${fg.value}/100 (${fg.classification}). Sentiment is fairly balanced, not screaming buy or sell.`
+  return `Fear & Greed ইনডেক্স: ${fg.value}/100 (${fg.classification})। বাজারের মনোভাব মোটামুটি ভারসাম্যপূর্ণ, স্পষ্ট কেনা বা বেচার সংকেত নেই।`
 }
 
 export function buildDailySummary(analyses: CoinAnalysis[], fg: FearGreed | null = null): DailySummary {
   if (analyses.length === 0) {
     return {
       mood: 'neutral',
-      moodSentence: 'Still loading market data.',
+      moodSentence: 'বাজারের তথ্য এখনো লোড হচ্ছে।',
       pick: null,
       pickSentence: '',
       avoid: [],
@@ -70,10 +73,10 @@ export function buildDailySummary(analyses: CoinAnalysis[], fg: FearGreed | null
   const mood: DailySummary['mood'] = avgChange7d > 3 ? 'bullish' : avgChange7d < -3 ? 'bearish' : 'neutral'
   const moodSentence =
     mood === 'bullish'
-      ? "Overall, the market's had a good week — most coins are up."
+      ? 'সবমিলিয়ে, এই সপ্তাহটা বাজারের জন্য ভালো গেছে — বেশিরভাগ কয়েনের দাম বেড়েছে।'
       : mood === 'bearish'
-        ? "Overall, the market's had a rough week — most coins are down."
-        : "Overall, the market's been mixed this week — no clear direction."
+        ? 'সবমিলিয়ে, এই সপ্তাহটা বাজারের জন্য খারাপ গেছে — বেশিরভাগ কয়েনের দাম কমেছে।'
+        : 'সবমিলিয়ে, এই সপ্তাহে বাজার মিশ্র ছিল — স্পষ্ট কোনো দিক নেই।'
 
   const candidates = analyses
     .map((a) => ({ a, v: getVerdict(a) }))
@@ -84,10 +87,10 @@ export function buildDailySummary(analyses: CoinAnalysis[], fg: FearGreed | null
   const pickVerdict = candidates[0]?.v ?? null
 
   const pickSentence = pick
-    ? `${pick.coin.name} (${pick.coin.symbol.toUpperCase()}) looks like the strongest option right now. ${plainExplanation(pick)} ${pickVerdict?.verdict === 'BUY_NOW' ? "It's worth buying now if you were going to buy something." : 'Worth slowly building a position rather than going all-in.'}`
-    : "Nothing in today's list clears the bar for a confident buy. Best move is to wait and check back — buying into a coin with no clear edge is just a guess."
+    ? `${pick.coin.name} (${pick.coin.symbol.toUpperCase()}) এখন সবচেয়ে ভালো অপশন মনে হচ্ছে। ${plainExplanation(pick)} ${pickVerdict?.verdict === 'BUY_NOW' ? 'কিছু কেনার পরিকল্পনা থাকলে এখনই কেনার মতো ভালো সময়।' : 'একবারে সব না লাগিয়ে ধীরে ধীরে পজিশন তৈরি করাই ভালো।'}`
+    : 'আজকের তালিকায় কোনো কয়েনই আত্মবিশ্বাসের সাথে কেনার মতো জায়গায় নেই। এখন সবচেয়ে ভালো হলো অপেক্ষা করা আর পরে আবার দেখা — স্পষ্ট সুবিধা ছাড়া কেনা মানে শুধু আন্দাজে টাকা লাগানো।'
 
-  const avoid = analyses.filter((a) => getVerdict(a).verdict === 'CRITICAL' && getVerdict(a).label.includes('DUMP')).slice(0, 2)
+  const avoid = analyses.filter((a) => getVerdict(a).verdict === 'CRITICAL' && getVerdict(a).label.includes('দরপতন')).slice(0, 2)
 
   return { mood, moodSentence, pick, pickSentence, avoid, fearGreedSentence: fearGreedSentence(fg) }
 }

@@ -88,6 +88,24 @@ export async function searchCoins(query: string): Promise<CoinSearchResult[]> {
   return data.coins.slice(0, 8)
 }
 
+export interface CoinSentiment {
+  up: number | null
+  down: number | null
+}
+
+export async function fetchCoinSentiment(id: string): Promise<CoinSentiment | null> {
+  try {
+    const { data } = await axios.get<{
+      sentiment_votes_up_percentage: number | null
+      sentiment_votes_down_percentage: number | null
+    }>(`${API}/coins/${id}`)
+    if (data.sentiment_votes_up_percentage == null && data.sentiment_votes_down_percentage == null) return null
+    return { up: data.sentiment_votes_up_percentage, down: data.sentiment_votes_down_percentage }
+  } catch {
+    return null
+  }
+}
+
 export interface FearGreed {
   value: number
   classification: string

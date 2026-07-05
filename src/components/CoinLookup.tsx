@@ -45,7 +45,7 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 mb-6">
       <h2 className="text-lg font-semibold text-white mb-2">Look up any coin</h2>
-      <div className="relative w-64">
+      <div className="relative w-full sm:w-64">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -53,7 +53,7 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
           className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm w-full"
         />
         {results.length > 0 && (
-          <ul className="absolute z-10 bg-slate-800 border border-slate-700 rounded mt-1 w-64 max-h-48 overflow-y-auto">
+          <ul className="absolute z-10 bg-slate-800 border border-slate-700 rounded mt-1 w-full max-h-48 overflow-y-auto">
             {results.map((r) => (
               <li
                 key={r.id}

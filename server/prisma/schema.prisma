@@ -16,14 +16,17 @@ model User {
 }
 
 model Holding {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  coinId    String
-  symbol    String
-  name      String
-  amount    Float
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coinId        String
+  symbol        String
+  name          String
+  amount        Float
+  purchasePrice Float
+  purchaseDate  DateTime
+  platform      String
+  createdAt     DateTime @default(now())
 
-  @@unique([userId, coinId])
+  @@index([userId, coinId])
 }

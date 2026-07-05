@@ -11,7 +11,7 @@ interface State {
   total: number
 }
 
-const COIN_LIMIT = 12
+const COIN_LIMIT = 20
 
 // The backend proxy serializes + caches upstream CoinGecko calls, so it's
 // safe to fire all coin requests concurrently here instead of spacing them

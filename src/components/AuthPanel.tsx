@@ -10,8 +10,10 @@ export function AuthPanel() {
 
   if (token) {
     return (
-      <div className="flex items-center gap-3 text-sm text-slate-300 mb-4">
-        Signed in as <span className="text-white font-medium">{email}</span>
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm text-slate-300 mb-4">
+        <span>
+          Signed in as <span className="text-white font-medium break-all">{email}</span>
+        </span>
         <button
           onClick={() => {
             logout()
@@ -40,31 +42,31 @@ export function AuthPanel() {
       <p className="text-sm text-slate-400 mb-2">
         Sign in to save your holdings to your account (instead of just this browser).
       </p>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
         <input
           type="email"
           placeholder="Email"
           value={form.email}
           onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-          className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm w-48"
+          className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm w-full sm:w-48"
         />
         <input
           type="password"
           placeholder="Password (8+ chars)"
           value={form.password}
           onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-          className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm w-48"
+          className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm w-full sm:w-48"
         />
         <button
           onClick={submit}
           disabled={busy || !form.email || !form.password}
-          className="bg-purple-600 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm px-3 py-1 rounded"
+          className="bg-purple-600 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm px-3 py-2 sm:py-1 rounded w-full sm:w-auto"
         >
           {busy ? 'Working…' : mode === 'login' ? 'Log in' : 'Sign up'}
         </button>
         <button
           onClick={() => setMode((m) => (m === 'login' ? 'signup' : 'login'))}
-          className="text-slate-400 hover:text-white text-sm"
+          className="text-slate-400 hover:text-white text-sm text-center sm:text-left"
         >
           {mode === 'login' ? 'Need an account? Sign up' : 'Have an account? Log in'}
         </button>
