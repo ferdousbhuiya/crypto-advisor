@@ -6,6 +6,21 @@ export const proxyRouter = Router()
 
 const CG_API = 'https://api.coingecko.com/api/v3'
 
+// Optional: a free CoinGecko "Demo" API key gives this app its own rate
+// limit instead of sharing whatever's left of the anonymous limit across
+// every other app on the same hosting IP (which is what was causing
+// constant 429s). Sign up free at coingecko.com/en/developers/dashboard,
+// grab a Demo API key, and set COINGECKO_API_KEY — no code changes needed.
+// Without it, requests still work, just subject to the shared/anonymous limit.
+const CG_API_KEY = process.env.COINGECKO_API_KEY
+
+function cgConfig(params?: Record<string, unknown>) {
+  return {
+    params,
+    headers: CG_API_KEY ? { 'x-cg-demo-api-key': CG_API_KEY } : undefined,
+  }
+}
+
 interface CacheEntry {
   expires: number
   data: unknown
@@ -83,7 +98,7 @@ proxyRouter.get('/coins/markets', async (req, res) => {
   const key = `markets:${JSON.stringify(req.query)}`
   try {
     const data = await cached(key, 3 * 60_000, async () => {
-      const { data } = await axios.get(`${CG_API}/coins/markets`, { params: req.query })
+      const { data } = await axios.get(`${CG_API}/coins/markets`, cgConfig(req.query))
       return data
     })
     res.json(data)
@@ -100,7 +115,7 @@ proxyRouter.get('/coins/:id/market_chart', async (req, res) => {
     // every few minutes. Longer TTL + Redis means a redeploy no longer
     // forces ~20 of these to fire at once against a cold cache.
     const data = await cached(key, 6 * 60 * 60_000, async () => {
-      const { data } = await axios.get(`${CG_API}/coins/${req.params.id}/market_chart`, { params: req.query })
+      const { data } = await axios.get(`${CG_API}/coins/${req.params.id}/market_chart`, cgConfig(req.query))
       return data
     })
     res.json(data)
@@ -113,7 +128,7 @@ proxyRouter.get('/search', async (req, res) => {
   const key = `search:${JSON.stringify(req.query)}`
   try {
     const data = await cached(key, 5 * 60_000, async () => {
-      const { data } = await axios.get(`${CG_API}/search`, { params: req.query })
+      const { data } = await axios.get(`${CG_API}/search`, cgConfig(req.query))
       return data
     })
     res.json(data)
@@ -130,16 +145,17 @@ proxyRouter.get('/coins/:id', async (req, res) => {
   const key = `detail:${req.params.id}`
   try {
     const data = await cached(key, 30 * 60_000, async () => {
-      const { data } = await axios.get(`${CG_API}/coins/${req.params.id}`, {
-        params: {
+      const { data } = await axios.get(
+        `${CG_API}/coins/${req.params.id}`,
+        cgConfig({
           localization: false,
           tickers: false,
           market_data: false,
           community_data: true,
           developer_data: false,
           sparkline: false,
-        },
-      })
+        }),
+      )
       return {
         sentiment_votes_up_percentage: data.sentiment_votes_up_percentage ?? null,
         sentiment_votes_down_percentage: data.sentiment_votes_down_percentage ?? null,
