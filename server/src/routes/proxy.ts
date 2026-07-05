@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import axios from 'axios'
+import { redisGet, redisSet } from '../redis'
 
 export const proxyRouter = Router()
 
@@ -44,6 +45,11 @@ async function withRetry<T>(fetcher: () => Promise<T>): Promise<T> {
   }
 }
 
+// Two layers: an in-memory Map (fastest, but wiped on every restart/deploy)
+// backed by Redis when REDIS_URL is configured (survives restarts, shared
+// across instances). A cold in-memory cache right after a deploy is exactly
+// what causes ~20 CoinGecko calls to fire at once and get rate-limited —
+// Redis means most of those come back instantly from cache instead.
 async function cached<T>(key: string, ttlMs: number, fetcher: () => Promise<T>): Promise<T> {
   const hit = cache.get(key)
   if (hit && hit.expires > Date.now()) return hit.data as T
@@ -51,12 +57,18 @@ async function cached<T>(key: string, ttlMs: number, fetcher: () => Promise<T>):
   const pending = inFlight.get(key)
   if (pending) return pending as Promise<T>
 
-  const promise = withRetry(fetcher)
-    .then((data) => {
-      cache.set(key, { expires: Date.now() + ttlMs, data })
-      return data
-    })
-    .finally(() => inFlight.delete(key))
+  const promise = (async () => {
+    const fromRedis = await redisGet<T>(key)
+    if (fromRedis !== null) {
+      cache.set(key, { expires: Date.now() + ttlMs, data: fromRedis })
+      return fromRedis
+    }
+
+    const data = await withRetry(fetcher)
+    cache.set(key, { expires: Date.now() + ttlMs, data })
+    await redisSet(key, data, Math.ceil(ttlMs / 1000))
+    return data
+  })().finally(() => inFlight.delete(key))
 
   inFlight.set(key, promise)
   return promise
@@ -70,7 +82,7 @@ function handleError(e: unknown, res: import('express').Response) {
 proxyRouter.get('/coins/markets', async (req, res) => {
   const key = `markets:${JSON.stringify(req.query)}`
   try {
-    const data = await cached(key, 90_000, async () => {
+    const data = await cached(key, 3 * 60_000, async () => {
       const { data } = await axios.get(`${CG_API}/coins/markets`, { params: req.query })
       return data
     })
@@ -83,7 +95,11 @@ proxyRouter.get('/coins/markets', async (req, res) => {
 proxyRouter.get('/coins/:id/market_chart', async (req, res) => {
   const key = `chart:${req.params.id}:${JSON.stringify(req.query)}`
   try {
-    const data = await cached(key, 15 * 60_000, async () => {
+    // 6h, not 15m: this is the expensive, easy-to-rate-limit endpoint (one
+    // call per coin), and daily technical indicators don't need to refresh
+    // every few minutes. Longer TTL + Redis means a redeploy no longer
+    // forces ~20 of these to fire at once against a cold cache.
+    const data = await cached(key, 6 * 60 * 60_000, async () => {
       const { data } = await axios.get(`${CG_API}/coins/${req.params.id}/market_chart`, { params: req.query })
       return data
     })
