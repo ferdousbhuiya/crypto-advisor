@@ -30,36 +30,9 @@ export default function FamilyPortfolio() {
 
       if (txs && txs.length > 0) {
         const symbols = [...new Set(txs.map((t: any) => t.asset_symbol))];
-
-        // Common symbols → CoinGecko ID (includes alternate names)
-        const SYM_TO_ID: Record<string, string> = {
-          BTC: 'bitcoin', ETH: 'ethereum', ETHORIUM: 'ethereum', ETHER: 'ethereum',
-          SOL: 'solana', BNB: 'binancecoin',
-          XRP: 'ripple', ADA: 'cardano', DOT: 'polkadot', DOGE: 'dogecoin',
-          AVAX: 'avalanche-2', MATIC: 'matic-network', LINK: 'chainlink',
-          UNI: 'uniswap', ATOM: 'cosmos', LTC: 'litecoin', BCH: 'bitcoin-cash',
-          ALGO: 'algorand', FIL: 'filecoin', TRX: 'tron', XLM: 'stellar',
-          VET: 'vechain', ICP: 'internet-computer', NEAR: 'near', APT: 'aptos',
-          ZEC: 'zcash', ZCASH: 'zcash', ZEN: 'zencash', DASH: 'dash', ETC: 'ethereum-classic',
-          XMR: 'monero', YFI: 'yearn-finance', SNX: 'synthetix-network-token',
-          MKR: 'maker', AAVE: 'aave', COMP: 'compound-governance-token',
-          SUSHI: 'sushi', CRV: 'curve-dao-token', '1INCH': '1inch',
-          ENJ: 'enjincoin', MANA: 'decentraland', SAND: 'the-sandbox',
-          AXS: 'axie-infinity', SHIB: 'shiba-inu', FTM: 'fantom',
-          HBAR: 'hedera-hashgraph', EOS: 'eos', NEO: 'neo', IOTA: 'iota',
-          XTZ: 'tezos', RUNE: 'thorchain', KSM: 'kusama', FLOW: 'flow',
-          STX: 'stacks', QNT: 'quant-network', CHZ: 'chiliz', GALA: 'gala',
-          THETA: 'theta-token', TFUEL: 'theta-fuel', AR: 'arweave',
-          HNT: 'helium', BAT: 'basic-attention-token', ZIL: 'zilliqa',
-          WAVES: 'waves', ONT: 'ontology', ICX: 'icon', OMG: 'omisego',
-          LRC: 'loopring', ZRX: '0x', SC: 'siacoin', DGB: 'digibyte',
-          USDT: 'tether', USDC: 'usd-coin', DAI: 'dai', PEPE: 'pepe',
-          BONK: 'bonk', INJ: 'injective-protocol', SEI: 'sei-network',
-          TIA: 'celestia', SUI: 'sui', OP: 'optimism', ARB: 'arbitrum',
-          AERO: 'aerodrome-finance', JUP: 'jupiter-exchange-solana',
-          WIF: 'dogwifcoin', FLOKI: 'floki', ENS: 'ethereum-name-service',
-          ENA: 'ethena', PENDLE: 'pendle', STRK: 'starknet'
-        };
+        const headers: Record<string, string> = {};
+        const cgKey = import.meta.env.VITE_COINGECKO_API_KEY || '';
+        if (cgKey) headers['x-cg-demo-api-key'] = cgKey;
 
         // Check localStorage cache (5 min TTL)
         const cacheKey = 'cg_prices';
@@ -73,51 +46,48 @@ export default function FamilyPortfolio() {
         }
 
         if (Object.keys(livePrices).length === 0) {
-          try {
-            const headers: Record<string, string> = {};
-            const cgKey = import.meta.env.VITE_COINGECKO_API_KEY || '';
-            if (cgKey) headers['x-cg-demo-api-key'] = cgKey;
-
-            // Resolve ALL symbols via search API (no hardcoding needed)
-            for (const sym of symbols) {
-              if (!SYM_TO_ID[sym.toUpperCase()]) {
-                try {
-                  const searchRes = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(sym)}`, { headers });
-                  const searchData = await searchRes.json();
-                  const exact = searchData.coins?.find((c: any) => c.symbol?.toUpperCase() === sym.toUpperCase());
-                  const match = exact || searchData.coins?.[0];
-                  if (match) SYM_TO_ID[sym.toUpperCase()] = match.id;
-                } catch { /* ignore search failures */ }
-              }
-            }
-
-            const coinIds = symbols.map((s: string) => SYM_TO_ID[s.toUpperCase()] || '').filter(Boolean).join(',');
-            let priceData: Record<string, { usd: number }> = {};
-
-            // Try simple/price first (efficient, 1 call)
+          // Step 1: resolve all symbols to CoinGecko IDs via search
+          const symToId: Record<string, string> = {};
+          for (const sym of symbols) {
             try {
-              const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=usd`, { headers });
-              priceData = await r.json();
+              const r = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(sym)}`, { headers });
+              const d = await r.json();
+              const exact = d.coins?.find((c: any) => c.symbol?.toUpperCase() === sym.toUpperCase());
+              const match = exact || d.coins?.[0];
+              if (match) symToId[sym.toUpperCase()] = match.id;
+            } catch { /* ignore */ }
+          }
+
+          const ids = [...new Set(Object.values(symToId))];
+          if (ids.length > 0) {
+            // Step 2: try batch simple/price
+            try {
+              const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=usd`, { headers });
+              const pd: Record<string, { usd: number }> = await r.json();
+              Object.entries(symToId).forEach(([sym, id]) => {
+                if (pd[id]) livePrices[sym] = pd[id].usd;
+              });
             } catch { /* fall through */ }
 
-            // If simple/price returns empty (rate limited), try coins/markets instead
-            if (Object.keys(priceData).length === 0 && coinIds) {
-              try {
-                const r = await fetch(`https://api.coingecko.com/api/v3/coins/markets?ids=${coinIds}&vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=false`, { headers });
-                const markets: any[] = await r.json();
-                markets.forEach((c: any) => { priceData[c.id] = { usd: c.current_price }; });
-              } catch { /* fall through */ }
+            // Step 3: fallback — fetch each coin individually
+            if (Object.keys(livePrices).length === 0) {
+              for (const id of ids) {
+                try {
+                  const r = await fetch(`https://api.coingecko.com/api/v3/coins/${id}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`, { headers });
+                  const d = await r.json();
+                  const price = d?.market_data?.current_price?.usd;
+                  if (price) {
+                    Object.entries(symToId).forEach(([sym, sid]) => {
+                      if (sid === id && !livePrices[sym]) livePrices[sym] = price;
+                    });
+                  }
+                } catch { /* skip */ }
+              }
             }
+          }
 
-            symbols.forEach((sym: string) => {
-              const id = SYM_TO_ID[sym.toUpperCase()];
-              if (id && priceData[id]) livePrices[sym.toUpperCase()] = priceData[id].usd;
-            });
-
-            // Cache for 5 min
+          if (Object.keys(livePrices).length > 0) {
             localStorage.setItem(cacheKey, JSON.stringify({ data: livePrices, expiry: Date.now() + 300_000 }));
-          } catch (err) {
-            console.error("Error fetching live prices:", err);
           }
         }
 
