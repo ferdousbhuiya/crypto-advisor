@@ -92,8 +92,22 @@ export default function FamilyPortfolio() {
             }
 
             const coinIds = symbols.map((s: string) => SYM_TO_ID[s.toUpperCase()] || '').filter(Boolean).join(',');
-            const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=usd`, { headers });
-            const priceData: Record<string, { usd: number }> = await priceRes.json();
+            let priceData: Record<string, { usd: number }> = {};
+
+            // Try simple/price first (efficient, 1 call)
+            try {
+              const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=usd`, { headers });
+              priceData = await r.json();
+            } catch { /* fall through */ }
+
+            // If simple/price returns empty (rate limited), try coins/markets instead
+            if (Object.keys(priceData).length === 0 && coinIds) {
+              try {
+                const r = await fetch(`https://api.coingecko.com/api/v3/coins/markets?ids=${coinIds}&vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=false`, { headers });
+                const markets: any[] = await r.json();
+                markets.forEach((c: any) => { priceData[c.id] = { usd: c.current_price }; });
+              } catch { /* fall through */ }
+            }
 
             symbols.forEach((sym: string) => {
               const id = SYM_TO_ID[sym.toUpperCase()];

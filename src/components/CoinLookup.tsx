@@ -2,8 +2,14 @@ import { useEffect, useState, useRef } from 'react'
 import { searchCoins, type CoinSearchResult, type CoinMarket } from '../lib/coingecko'
 import { analyzeCoin, type CoinAnalysis } from '../lib/scoring'
 
-function pickCgApi(headers?: Record<string, string>) {
-  return (path: string) => fetch(`https://api.coingecko.com/api/v3${path}`, { headers }).then(r => r.json())
+const cgHeaders: Record<string, string> = {}
+const cgKey = import.meta.env.VITE_COINGECKO_API_KEY || ''
+if (cgKey) cgHeaders['x-cg-demo-api-key'] = cgKey
+
+async function cgFetch(path: string) {
+  const r = await fetch(`https://api.coingecko.com/api/v3${path}`, { headers: cgHeaders })
+  if (!r.ok) throw new Error(`CoinGecko ${r.status}`)
+  return r.json()
 }
 
 export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) {
@@ -12,10 +18,6 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const pickedRef = useRef(false)
-
-  const headers: Record<string, string> = {}
-  const key = import.meta.env.VITE_COINGECKO_API_KEY || ''
-  if (key) headers['x-cg-demo-api-key'] = key
 
   useEffect(() => {
     if (!query.trim() || pickedRef.current) {
@@ -35,7 +37,7 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
   }, [query])
 
   async function fetchCoinDetail(id: string) {
-    const data = await pickCgApi(headers)(`/coins/${id}?localization=false&tickers=false&community_data=true&developer_data=false&sparkline=true`)
+    const data = await cgFetch(`/coins/${id}?localization=false&tickers=false&community_data=true&developer_data=false&sparkline=true`)
     if (!data?.id) throw new Error('Coin not found')
 
     // Build a CoinMarket-like object from the detail endpoint
@@ -63,7 +65,7 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
     // If sparkline is short or empty, try market_chart
     const history = prices.length > 2
       ? prices
-      : await pickCgApi(headers)(`/coins/${id}/market_chart?vs_currency=usd&days=30`)
+      : await cgFetch(`/coins/${id}/market_chart?vs_currency=usd&days=30`)
           .then(d => (d.prices || []).map((p: [number, number]) => p[1]))
           .catch(() => [coin.current_price])
 
