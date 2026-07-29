@@ -1,9 +1,5 @@
 {
-  "services": {
-    "crypto-advisor-master": {
-      "root": ".",
-      "framework": "vite",
-      "buildCommand": "npm run build"
-    }
-  }
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite"
 }
