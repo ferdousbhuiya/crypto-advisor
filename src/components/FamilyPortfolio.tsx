@@ -46,44 +46,30 @@ export default function FamilyPortfolio() {
         }
 
         if (Object.keys(livePrices).length === 0) {
-          // Step 1: resolve all symbols to CoinGecko IDs via search
+          // Resolve symbols → IDs via search, then batch-fetch prices
           const symToId: Record<string, string> = {};
           for (const sym of symbols) {
             try {
               const r = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(sym)}`, { headers });
               const d = await r.json();
               const exact = d.coins?.find((c: any) => c.symbol?.toUpperCase() === sym.toUpperCase());
-              const match = exact || d.coins?.[0];
-              if (match) symToId[sym.toUpperCase()] = match.id;
+              symToId[sym.toUpperCase()] = (exact || d.coins?.[0])?.id;
             } catch { /* ignore */ }
           }
 
-          const ids = [...new Set(Object.values(symToId))];
-          if (ids.length > 0) {
-            // Step 2: try batch simple/price
+          const ids = [...new Set(Object.values(symToId).filter(Boolean))] as string[];
+          for (const id of ids) {
             try {
-              const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=usd`, { headers });
-              const pd: Record<string, { usd: number }> = await r.json();
-              Object.entries(symToId).forEach(([sym, id]) => {
-                if (pd[id]) livePrices[sym] = pd[id].usd;
-              });
-            } catch { /* fall through */ }
-
-            // Step 3: fallback — fetch each coin individually
-            if (Object.keys(livePrices).length === 0) {
-              for (const id of ids) {
-                try {
-                  const r = await fetch(`https://api.coingecko.com/api/v3/coins/${id}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`, { headers });
-                  const d = await r.json();
-                  const price = d?.market_data?.current_price?.usd;
-                  if (price) {
-                    Object.entries(symToId).forEach(([sym, sid]) => {
-                      if (sid === id && !livePrices[sym]) livePrices[sym] = price;
-                    });
-                  }
-                } catch { /* skip */ }
+              const r = await fetch(`https://api.coingecko.com/api/v3/coins/${id}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`, { headers });
+              const d = await r.json();
+              const price = d?.market_data?.current_price?.usd;
+              if (price) {
+                // Map this price back to all symbols that resolved to this id
+                Object.entries(symToId).forEach(([sym, sid]) => {
+                  if (sid === id) livePrices[sym] = price;
+                });
               }
-            }
+            } catch { /* skip */ }
           }
 
           if (Object.keys(livePrices).length > 0) {
