@@ -46,34 +46,35 @@ export default function FamilyPortfolio() {
         }
 
         if (Object.keys(livePrices).length === 0) {
-          // Resolve symbols → IDs via search, then batch-fetch prices
-          const symToId: Record<string, string> = {};
-          for (const sym of symbols) {
-            try {
-              const r = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(sym)}`, { headers });
-              const d = await r.json();
-              const exact = d.coins?.find((c: any) => c.symbol?.toUpperCase() === sym.toUpperCase());
-              symToId[sym.toUpperCase()] = (exact || d.coins?.[0])?.id;
-            } catch { /* ignore */ }
-          }
-
-          const ids = [...new Set(Object.values(symToId).filter(Boolean))] as string[];
-          for (const id of ids) {
-            try {
-              const r = await fetch(`https://api.coingecko.com/api/v3/coins/${id}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`, { headers });
-              const d = await r.json();
-              const price = d?.market_data?.current_price?.usd;
-              if (price) {
-                // Map this price back to all symbols that resolved to this id
-                Object.entries(symToId).forEach(([sym, sid]) => {
-                  if (sid === id) livePrices[sym] = price;
-                });
-              }
-            } catch { /* skip */ }
-          }
-
-          if (Object.keys(livePrices).length > 0) {
+          // Single call: fetch top 250 coins with prices, then match by symbol
+          try {
+            const r = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=false`, { headers });
+            const markets: any[] = await r.json();
+            markets.forEach((c: any) => {
+              const sym = c.symbol?.toUpperCase();
+              if (sym && c.current_price) livePrices[sym] = c.current_price;
+            });
             localStorage.setItem(cacheKey, JSON.stringify({ data: livePrices, expiry: Date.now() + 300_000 }));
+          } catch { /* fall through */ }
+
+          // If still empty (rate limited), try individual search + fetch for unmatched symbols
+          if (Object.keys(livePrices).length === 0) {
+            for (const sym of symbols) {
+              if (livePrices[sym.toUpperCase()]) continue;
+              try {
+                const sr = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(sym)}`, { headers });
+                const sd = await sr.json();
+                const match = sd.coins?.find((c: any) => c.symbol?.toUpperCase() === sym.toUpperCase()) || sd.coins?.[0];
+                if (!match) continue;
+                const cr = await fetch(`https://api.coingecko.com/api/v3/coins/${match.id}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`, { headers });
+                const cd = await cr.json();
+                const price = cd?.market_data?.current_price?.usd;
+                if (price) livePrices[sym.toUpperCase()] = price;
+              } catch { /* skip */ }
+            }
+            if (Object.keys(livePrices).length > 0) {
+              localStorage.setItem(cacheKey, JSON.stringify({ data: livePrices, expiry: Date.now() + 300_000 }));
+            }
           }
         }
 
