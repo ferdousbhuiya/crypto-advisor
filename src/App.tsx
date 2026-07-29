@@ -11,6 +11,7 @@ import { CoinLookup } from './components/CoinLookup'
 import { useCoinSentiment } from './lib/useCoinSentiment'
 import { sentimentSignal } from './lib/sentiment'
 import FamilyPortfolio from './components/FamilyPortfolio'
+import { AddTransaction } from './components/AddTransaction'
 
 function fmt(n: number | null | undefined, digits = 2) {
   if (n === null || n === undefined || Number.isNaN(n)) return '—'
@@ -143,7 +144,10 @@ function App() {
           <button onClick={handleLogout} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded font-semibold">Logout</button>
         </div>
 
-        {/* PORTFOLIO */}
+        {/* ADD TRANSACTION + PORTFOLIO */}
+        <div className="mb-8">
+          <AddTransaction />
+        </div>
         <FamilyPortfolio />
 
         {/* MARKET ANALYSIS */}
