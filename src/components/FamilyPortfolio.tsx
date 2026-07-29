@@ -7,6 +7,15 @@ import type { PositionData } from '../lib/portfolioAnalytics';
 export default function FamilyPortfolio() {
   const [positions, setPositions] = useState<PositionData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  async function deleteSymbol(symbol: string) {
+    if (!confirm(`Delete all ${symbol} transactions?`)) return;
+    setDeleting(symbol);
+    const { error } = await supabase.from('transactions').delete().eq('asset_symbol', symbol);
+    if (!error) window.location.reload();
+    setDeleting(null);
+  }
 
   useEffect(() => {
     async function loadData() {
@@ -69,15 +78,17 @@ export default function FamilyPortfolio() {
             const cgKey = import.meta.env.VITE_COINGECKO_API_KEY || '';
             if (cgKey) headers['x-cg-demo-api-key'] = cgKey;
 
-            // Resolve unknown symbols via search API
-            const unknownSymbols = symbols.filter((s: string) => !SYM_TO_ID[s.toUpperCase()]);
-            for (const sym of unknownSymbols) {
-              try {
-                const searchRes = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(sym)}`, { headers });
-                const searchData = await searchRes.json();
-                const match = searchData.coins?.[0];
-                if (match) SYM_TO_ID[sym.toUpperCase()] = match.id;
-              } catch { /* ignore search failures */ }
+            // Resolve ALL symbols via search API (no hardcoding needed)
+            for (const sym of symbols) {
+              if (!SYM_TO_ID[sym.toUpperCase()]) {
+                try {
+                  const searchRes = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(sym)}`, { headers });
+                  const searchData = await searchRes.json();
+                  const exact = searchData.coins?.find((c: any) => c.symbol?.toUpperCase() === sym.toUpperCase());
+                  const match = exact || searchData.coins?.[0];
+                  if (match) SYM_TO_ID[sym.toUpperCase()] = match.id;
+                } catch { /* ignore search failures */ }
+              }
             }
 
             const coinIds = symbols.map((s: string) => SYM_TO_ID[s.toUpperCase()] || '').filter(Boolean).join(',');
@@ -93,8 +104,6 @@ export default function FamilyPortfolio() {
             localStorage.setItem(cacheKey, JSON.stringify({ data: livePrices, expiry: Date.now() + 300_000 }));
           } catch (err) {
             console.error("Error fetching live prices:", err);
-            // Fallback: seed common prices
-            livePrices = { 'BTC': 63600, 'ETH': 1887, 'SOL': 72, 'ZEC': 463, 'ZCASH': 463, 'XRP': 1.07, 'ADA': 0.16, 'DOGE': 0.07, 'BNB': 568, 'LINK': 8.2, 'DOT': 4.5, 'AVAX': 18, 'MATIC': 0.3, 'XMR': 351, 'TRX': 0.32, 'STX': 1.2, 'VET': 0.02, 'FIL': 3.5, 'APT': 6.5, 'LTC': 62, 'BCH': 320 };
           }
         }
 
@@ -123,12 +132,19 @@ export default function FamilyPortfolio() {
         {positions.map((pos, index) => (
           <div key={index} className="bg-slate-900 p-6 rounded-xl shadow-lg border border-slate-700">
             <div className="flex justify-between items-start mb-4">
-              <div>
+              <div className="flex-1">
                 <h3 className="text-2xl font-bold text-white">{pos.asset_symbol}</h3>
                 <p className="text-slate-400 text-sm">Platform: {pos.platform || 'Unknown'}</p>
                 <p className="text-slate-400 text-sm">Holdings: {pos.total_quantity.toFixed(6)} tokens</p>
                 <p className="text-slate-400 text-sm">Total Invested: ${pos.total_invested_fiat.toFixed(2)}</p>
               </div>
+              <button
+                onClick={() => deleteSymbol(pos.asset_symbol)}
+                disabled={deleting === pos.asset_symbol}
+                className="self-start px-2 py-1 text-xs bg-red-900/50 hover:bg-red-800 text-red-300 rounded border border-red-700 disabled:opacity-50"
+              >
+                {deleting === pos.asset_symbol ? '…' : '✕'}
+              </button>
               <div className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
                 pos.signal_color === 'lime' ? 'bg-lime-900/50 text-lime-300 border border-lime-600' :
                 pos.signal_color === 'green' ? 'bg-green-900/50 text-green-400 border border-green-700' :
