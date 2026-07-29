@@ -1,0 +1,30 @@
+{
+  "services": {
+    "web": {
+      "root": ".",
+      "framework": "vite",
+      "buildCommand": "npm install && npm run build && cd server && npm install && npx prisma generate && npm run build"
+    },
+    "crypto-advisor-master": {
+      "root": "crypto-advisor-master",
+      "framework": "vite",
+      "buildCommand": "npm install && npm run build && cd server && npm install && npx prisma generate && npm run build"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api(/.*)?",
+      "destination": {
+        "type": "service",
+        "service": "crypto-advisor-master"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "type": "service",
+        "service": "web"
+      }
+    }
+  ]
+}

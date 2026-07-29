@@ -33,13 +33,14 @@ function verdictColor(v: Verdict) {
 function CoinDetail({ a }: { a: CoinAnalysis }) {
   // ... (Keep all your existing CoinDetail code here: RSI, MACD, Sentiment, PriceChart, etc.) ...
   // For brevity in this prompt, assume your existing CoinDetail code is pasted here.
-  const v = getVerdict(a)
+  const _v = getVerdict(a)
   const sentiment = useCoinSentiment(a.coin.id)
   const sentimentNote = sentiment ? sentimentSignal(sentiment) : null
   const rows: [string, string][] = [
     ['Price (USD)', `$${fmt(a.coin.current_price, 4)}`],
     ['Market cap', `$${fmt(a.coin.market_cap, 0)}`],
     ['24h change', `${fmt(a.change24h)}%`],
+    ['Sentiment', sentimentNote || '—'],
     ['RSI (14d)', fmt(a.rsi, 1)],
     ['MACD', a.macd ? fmt(a.macd.macd, 4) : '—'],
   ]
@@ -83,7 +84,7 @@ function App() {
   // (Your specific family holdings are now handled by FamilyPortfolio below).
   const defaultMarketIds = ['bitcoin', 'ethereum', 'solana', 'binancecoin', 'ripple']
   
-  const { loading, error, analyses, allAnalyses, progress, total } = useMarketAnalysis(defaultMarketIds)
+  const { loading, error, analyses, _allAnalyses, progress, total } = useMarketAnalysis(defaultMarketIds)
   
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [lookup, setLookup] = useState<CoinAnalysis | null>(null)
