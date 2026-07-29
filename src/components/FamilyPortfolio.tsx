@@ -30,9 +30,8 @@ export default function FamilyPortfolio() {
 
       if (txs && txs.length > 0) {
         const symbols = [...new Set(txs.map((t: any) => t.asset_symbol))];
-        const headers: Record<string, string> = {};
         const cgKey = import.meta.env.VITE_COINGECKO_API_KEY || '';
-        if (cgKey) headers['x-cg-demo-api-key'] = cgKey;
+        const cgParam = cgKey ? `&x_cg_demo_api_key=${encodeURIComponent(cgKey)}` : '';
 
         // Check localStorage cache (5 min TTL)
         const cacheKey = 'cg_prices';
@@ -48,7 +47,7 @@ export default function FamilyPortfolio() {
         if (Object.keys(livePrices).length === 0) {
           // Single call: fetch top 250 coins with prices, then match by symbol
           try {
-            const r = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=false`, { headers });
+            const r = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=false${cgParam}`);
             const markets: any[] = await r.json();
             markets.forEach((c: any) => {
               const sym = c.symbol?.toUpperCase();
@@ -62,11 +61,11 @@ export default function FamilyPortfolio() {
             for (const sym of symbols) {
               if (livePrices[sym.toUpperCase()]) continue;
               try {
-                const sr = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(sym)}`, { headers });
+                const sr = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(sym)}${cgParam}`);
                 const sd = await sr.json();
                 const match = sd.coins?.find((c: any) => c.symbol?.toUpperCase() === sym.toUpperCase()) || sd.coins?.[0];
                 if (!match) continue;
-                const cr = await fetch(`https://api.coingecko.com/api/v3/coins/${match.id}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`, { headers });
+                const cr = await fetch(`https://api.coingecko.com/api/v3/coins/${match.id}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false${cgParam}`);
                 const cd = await cr.json();
                 const price = cd?.market_data?.current_price?.usd;
                 if (price) livePrices[sym.toUpperCase()] = price;
