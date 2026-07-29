@@ -14,6 +14,7 @@ import { CoinLookup } from './components/CoinLookup'
 import { useCoinSentiment } from './lib/useCoinSentiment'
 import { sentimentSignal } from './lib/sentiment'
 import FamilyPortfolio from './components/FamilyPortfolio' // NEW: Family P&L View
+import { AddTransaction } from './components/AddTransaction';
 
 // --- KEEP YOUR EXISTING HELPER FUNCTIONS ---
 function fmt(n: number | null | undefined, digits = 2) {
@@ -121,6 +122,31 @@ function App() {
       <div className="max-w-6xl mx-auto">
         
         {/* HEADER WITH LOGOUT */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">Family Wealth Advisor</h1>
+            <p className="text-slate-400 text-sm">Logged in as {session.user.email}</p>
+          </div>
+          <button 
+            onClick={handleLogout} 
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded font-semibold"
+          >
+            Logout
+          </button>
+        </div>
+
+        // After the header with logout button, add:
+<div className="mb-8">
+  <AddTransaction />
+</div>
+
+{/* Then your existing Market Analysis section */}
+<div className="border-t border-slate-800 pt-8">
+  <h2 className="text-xl font-bold text-white mb-4">Market Analysis & Technical Signals</h2>
+  ...
+
+
+
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-white">Family Wealth Advisor</h1>
