@@ -11,15 +11,44 @@ export default function FamilyPortfolio() {
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      const { data: txs, error } = await supabase.from('transactions').select('*');
-      
-      if (error) {
-        console.error("Error fetching transactions:", error);
-      } else if (txs) {
-        const mockLivePrices: Record<string, number> = { 'BTC': 68000, 'ETH': 3800, 'SOL': 150 };
-        const mockFearGreed = 78; 
-        const calculated = calculatePositions(txs as Transaction[], mockLivePrices, mockFearGreed);
-        setPositions(calculated);
+      const { data: txs, error: txError } = await supabase.from('transactions').select('*');
+
+      if (txError) {
+        console.error("Error fetching transactions:", txError);
+        setLoading(false);
+        return;
+      }
+
+      if (txs && txs.length > 0) {
+        const symbols = [...new Set(txs.map((t: any) => t.asset_symbol))];
+        const idsString = symbols.join(',');
+
+        try {
+          const cgKey = import.meta.env.VITE_COINGECKO_API_KEY || '';
+          const params = new URLSearchParams({ vs_currency: 'usd', ids: idsString, order: 'market_cap_desc', per_page: '250', page: '1', sparkline: 'false' });
+          if (cgKey) params.set('x_cg_demo_api_key', cgKey);
+          const response = await fetch(`https://api.coingecko.com/api/v3/coins/markets?${params}`);
+          const priceData = await response.json();
+
+          const livePrices: Record<string, number> = {};
+          priceData.forEach((coin: any) => {
+            livePrices[coin.symbol.toUpperCase()] = coin.current_price;
+          });
+
+          let fearGreed = 50;
+          try {
+            const fgRes = await fetch('https://api.alternative.me/fng/?limit=1');
+            const fgData = await fgRes.json();
+            fearGreed = parseInt(fgData.data[0].value);
+          } catch (e) { console.log("Fear/Greed fetch failed"); }
+
+          const calculated = calculatePositions(txs as Transaction[], livePrices, fearGreed);
+          setPositions(calculated);
+        } catch (err) {
+          console.error("Error fetching live prices:", err);
+          const mockLivePrices: Record<string, number> = { 'BTC': 68000, 'ETH': 3800, 'SOL': 150, 'ZEC': 30 };
+          setPositions(calculatePositions(txs as Transaction[], mockLivePrices, 50));
+        }
       }
       setLoading(false);
     }
@@ -49,6 +78,7 @@ export default function FamilyPortfolio() {
                 {pos.signal_color.toUpperCase()}
               </div>
             </div>
+
             <div className="border-t border-slate-700 pt-4 mb-4">
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Current Value</span>
@@ -61,6 +91,7 @@ export default function FamilyPortfolio() {
                 </span>
               </div>
             </div>
+
             <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
               <p className="text-xs text-slate-400 mb-1 font-semibold uppercase">Market Context & Signal:</p>
               <p className="text-sm text-slate-200">{pos.signal_text}</p>
