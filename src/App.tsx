@@ -30,54 +30,24 @@ function CoinDetail({ a }: { a: CoinAnalysis }) {
   const _v = getVerdict(a)
   const sentiment = useCoinSentiment(a.coin.id)
   const sentimentNote = sentiment ? sentimentSignal(sentiment) : null
-  const rows: [string, string][] = [
-    ['Price (USD)', `$${fmt(a.coin.current_price, 4)}`],
-    ['Market cap', `$${fmt(a.coin.market_cap, 0)}`],
-    ['Market cap rank', `#${a.coin.market_cap_rank}`],
-    ['24h volume', `$${fmt(a.coin.total_volume, 0)}`],
-    ['Volume / market cap', `${fmt(a.volumeToMcap)}%`],
-    ['24h change', `${fmt(a.change24h)}%`],
-    ['7d change', `${fmt(a.change7d)}%`],
-    ['ATH', `$${fmt(a.coin.ath, 4)}`],
-    ['Drawdown from ATH', `${fmt(a.athDrawdown)}%`],
-    ['RSI (14d)', fmt(a.rsi, 1)],
-    ['SMA 7', `$${fmt(a.sma7, 4)}`],
-    ['SMA 25', `$${fmt(a.sma25, 4)}`],
-    ['EMA 12', `$${fmt(a.ema12, 4)}`],
-    ['MACD', a.macd ? fmt(a.macd.macd, 4) : '—'],
-    ['MACD signal', a.macd ? fmt(a.macd.signal, 4) : '—'],
-    ['MACD histogram', a.macd ? fmt(a.macd.histogram, 4) : '—'],
-    ['Volatility (30d, %/day)', fmt(a.volatility)],
-    ['Circulating supply', fmt(a.coin.circulating_supply, 0)],
-  ]
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 mt-4 text-left">
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        <img src={a.coin.image} alt="" className="w-6 h-6" />
-        <h3 className="text-lg font-semibold text-white">
-          {a.coin.name} ({a.coin.symbol.toUpperCase()})
-        </h3>
-        <span className={`sm:ml-auto px-2 py-1 rounded text-xs font-bold ${verdictColor(_v.verdict)}`}>
-          {_v.label} · score {a.score}
-        </span>
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <img src={a.coin.image} alt="" className="w-8 h-8" />
+        <span className="font-semibold text-white">{a.coin.name}</span>
+        <span className="text-slate-500 text-sm">{a.coin.symbol.toUpperCase()}</span>
+        <span className="font-mono text-white">${fmt(a.coin.current_price, 4)}</span>
+        <span className={a.change24h >= 0 ? 'text-green-400 text-sm' : 'text-red-400 text-sm'}>{fmt(a.change24h)}%</span>
+        <span className="text-slate-300 text-sm">RSI {fmt(a.rsi, 0)}</span>
+        <span className="text-slate-300 text-sm">Score {a.score}</span>
+        <span className={`px-2 py-0.5 rounded text-xs font-bold ${verdictColor(_v.verdict)}`}>{_v.label}</span>
       </div>
-      <p className="text-slate-400 text-sm mb-2">{_v.detail}</p>
+      <p className="text-slate-400 text-sm mb-3">{_v.detail}</p>
       <PriceChart coinId={a.coin.id} />
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-sm mt-4">
-        {rows.map(([label, value]) => (
-          <div key={label} className="flex justify-between border-b border-slate-800 py-1">
-            <span className="text-slate-400">{label}</span>
-            <span className="text-slate-100 font-mono">{value}</span>
-          </div>
-        ))}
-      </div>
       {a.reasons.length > 0 && (
-        <div className="mt-3">
-          <p className="text-slate-400 text-sm mb-1">Why this score:</p>
-          <ul className="list-disc list-inside text-sm text-slate-200 space-y-0.5">
-            {a.reasons.map((r) => (<li key={r}>{r}</li>))}
-          </ul>
-        </div>
+        <ul className="list-disc list-inside text-sm text-slate-200 mt-3 space-y-0.5">
+          {a.reasons.map((r) => (<li key={r}>{r}</li>))}
+        </ul>
       )}
       {sentimentNote && (
         <div className="mt-3 bg-slate-800/60 border border-slate-700 rounded p-3">
