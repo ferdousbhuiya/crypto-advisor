@@ -1,10 +1,14 @@
 // src/components/AddTransaction.tsx
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 export function AddTransaction() {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [symbolSuggestions, setSymbolSuggestions] = useState<{ id: string; name: string; symbol: string; thumb: string }[]>([]);
+  const [symbolQuery, setSymbolQuery] = useState('');
+  const pickedRef = useRef(false);
+
   const [formData, setFormData] = useState({
     asset_symbol: '',
     platform: '',
@@ -14,6 +18,32 @@ export function AddTransaction() {
     transaction_date: new Date().toISOString().split('T')[0],
     notes: '',
   });
+
+  // Search coin suggestions
+  useEffect(() => {
+    if (!symbolQuery.trim() || pickedRef.current) {
+      setSymbolSuggestions([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const headers: Record<string, string> = {};
+        const key = import.meta.env.VITE_COINGECKO_API_KEY || '';
+        if (key) headers['x-cg-demo-api-key'] = key;
+        const r = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(symbolQuery)}`, { headers });
+        const d = await r.json();
+        setSymbolSuggestions((d.coins || []).slice(0, 8));
+      } catch { /* ignore */ }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [symbolQuery]);
+
+  function pickSymbol(s: { symbol: string; name: string }) {
+    pickedRef.current = true;
+    setFormData(f => ({ ...f, asset_symbol: s.symbol.toUpperCase() }));
+    setSymbolQuery(s.symbol.toUpperCase());
+    setSymbolSuggestions([]);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,16 +113,27 @@ export function AddTransaction() {
       
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+          <div className="relative">
             <label className="block text-sm text-slate-400 mb-1">Asset Symbol (e.g., BTC, ETH)</label>
             <input
               type="text"
               value={formData.asset_symbol}
-              onChange={(e) => setFormData({ ...formData, asset_symbol: e.target.value })}
+              onChange={(e) => { pickedRef.current = false; setSymbolQuery(e.target.value); setFormData(f => ({ ...f, asset_symbol: e.target.value })) }}
               className="w-full p-2 rounded bg-slate-800 border border-slate-700 text-white"
-              placeholder="BTC"
+              placeholder="Type to search…"
               required
+              autoComplete="off"
             />
+            {symbolSuggestions.length > 0 && !pickedRef.current && (
+              <ul className="absolute z-20 bg-slate-800 border border-slate-700 rounded mt-1 w-full max-h-48 overflow-y-auto shadow-xl">
+                {symbolSuggestions.map(s => (
+                  <li key={s.id} onClick={() => pickSymbol(s)} className="px-2 py-1.5 text-sm hover:bg-slate-700 cursor-pointer flex items-center gap-2">
+                    <img src={s.thumb} alt="" className="w-4 h-4" />
+                    {s.name} <span className="text-slate-500">{s.symbol.toUpperCase()}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div>
