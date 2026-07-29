@@ -1,6 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
-import { fetchMarketsByIds, fetchPriceHistory, searchCoins, type CoinSearchResult } from '../lib/coingecko'
+import { searchCoins, type CoinSearchResult, type CoinMarket } from '../lib/coingecko'
 import { analyzeCoin, type CoinAnalysis } from '../lib/scoring'
+
+function pickCgApi(headers?: Record<string, string>) {
+  return (path: string) => fetch(`https://api.coingecko.com/api/v3${path}`, { headers }).then(r => r.json())
+}
 
 export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) {
   const [query, setQuery] = useState('')
@@ -8,6 +12,10 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const pickedRef = useRef(false)
+
+  const headers: Record<string, string> = {}
+  const key = import.meta.env.VITE_COINGECKO_API_KEY || ''
+  if (key) headers['x-cg-demo-api-key'] = key
 
   useEffect(() => {
     if (!query.trim() || pickedRef.current) {
@@ -26,21 +34,55 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
     }
   }, [query])
 
+  async function fetchCoinDetail(id: string) {
+    const data = await pickCgApi(headers)(`/coins/${id}?localization=false&tickers=false&community_data=true&developer_data=false&sparkline=true`)
+    if (!data?.id) throw new Error('Coin not found')
+
+    // Build a CoinMarket-like object from the detail endpoint
+    const coin: CoinMarket = {
+      id: data.id,
+      symbol: data.symbol,
+      name: data.name,
+      image: data.image?.large || '',
+      current_price: data.market_data?.current_price?.usd ?? 0,
+      market_cap: data.market_data?.market_cap?.usd ?? 0,
+      market_cap_rank: data.market_data?.market_cap_rank ?? 0,
+      total_volume: data.market_data?.total_volume?.usd ?? 0,
+      high_24h: data.market_data?.high_24h?.usd ?? 0,
+      low_24h: data.market_data?.low_24h?.usd ?? 0,
+      price_change_percentage_24h: data.market_data?.price_change_percentage_24h ?? 0,
+      price_change_percentage_7d_in_currency: data.market_data?.price_change_percentage_7d ?? undefined,
+      circulating_supply: data.market_data?.circulating_supply ?? 0,
+      total_supply: data.market_data?.total_supply ?? null,
+      ath: data.market_data?.ath?.usd ?? 0,
+      ath_change_percentage: data.market_data?.ath_change_percentage?.usd ?? 0,
+    }
+
+    // Extract sparkline prices for indicator calculation
+    const prices: number[] = data.market_data?.sparkline_7d?.price || []
+    // If sparkline is short or empty, try market_chart
+    const history = prices.length > 2
+      ? prices
+      : await pickCgApi(headers)(`/coins/${id}/market_chart?vs_currency=usd&days=30`)
+          .then(d => (d.prices || []).map((p: [number, number]) => p[1]))
+          .catch(() => [coin.current_price])
+
+    return analyzeCoin(coin, history)
+  }
+
   async function pick(r: CoinSearchResult) {
     pickedRef.current = true
     setQuery(r.name)
     setError(null)
     setLoading(true)
     try {
-      const [coin] = await fetchMarketsByIds([r.id]).catch(() => [])
-      if (!coin) { setError('No market data for this coin'); setLoading(false); return; }
-      const history = await fetchPriceHistory(r.id, 30).catch(() => [coin.current_price])
-      onFound(analyzeCoin(coin, history))
+      const analysis = await fetchCoinDetail(r.id)
+      onFound(analysis)
+      setResults([])
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Lookup failed')
+      setError(e instanceof Error ? e.message : 'Lookup failed — try again later')
     } finally {
       setLoading(false)
-      setResults([])
       pickedRef.current = false
     }
   }
@@ -70,7 +112,7 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
           </ul>
         )}
       </div>
-      {loading && <p className="text-slate-400 text-sm mt-2">Loading…</p>}
+      {loading && <p className="text-slate-400 text-sm mt-2">Loading market data…</p>}
       {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
     </div>
   )
