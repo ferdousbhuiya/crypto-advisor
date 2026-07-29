@@ -21,18 +21,31 @@ export default function FamilyPortfolio() {
 
       if (txs && txs.length > 0) {
         const symbols = [...new Set(txs.map((t: any) => t.asset_symbol))];
-        const idsString = symbols.join(',');
+        const headers: Record<string, string> = {};
+        const cgKey = import.meta.env.VITE_COINGECKO_API_KEY || '';
+        if (cgKey) headers['x-cg-demo-api-key'] = cgKey;
 
         try {
-          const cgKey = import.meta.env.VITE_COINGECKO_API_KEY || '';
-          const params = new URLSearchParams({ vs_currency: 'usd', ids: idsString, order: 'market_cap_desc', per_page: '250', page: '1', sparkline: 'false' });
-          if (cgKey) params.set('x_cg_demo_api_key', cgKey);
-          const response = await fetch(`https://api.coingecko.com/api/v3/coins/markets?${params}`);
-          const priceData = await response.json();
+          // Fetch symbol → CoinGecko ID mapping (cached in session)
+          const listRes = await fetch('https://api.coingecko.com/api/v3/coins/list', { headers });
+          const allCoins: { id: string; symbol: string }[] = await listRes.json();
+          const symToId: Record<string, string> = {};
+          allCoins.forEach((c: any) => {
+            const key = c.symbol.toUpperCase();
+            if (!symToId[key]) symToId[key] = c.id; // first match wins
+          });
 
+          // Resolve symbols → IDs
+          const coinIds = symbols.map((s: string) => symToId[s.toUpperCase()] || '').filter(Boolean).join(',');
+
+          // Fetch live prices by ID
+          const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=usd`, { headers });
+          const priceData: Record<string, { usd: number }> = await priceRes.json();
+
+          // Build symbol→price map using reverse lookup
           const livePrices: Record<string, number> = {};
-          priceData.forEach((coin: any) => {
-            livePrices[coin.symbol.toUpperCase()] = coin.current_price;
+          Object.entries(symToId).forEach(([sym, id]) => {
+            if (priceData[id]) livePrices[sym] = priceData[id].usd;
           });
 
           let fearGreed = 50;
