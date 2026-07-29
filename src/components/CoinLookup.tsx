@@ -31,8 +31,8 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
     setError(null)
     setLoading(true)
     try {
-      const [coin] = await fetchMarketsByIds([r.id])
-      if (!coin) throw new Error('No market data for this coin')
+      const [coin] = await fetchMarketsByIds([r.id]).catch(() => [])
+      if (!coin) { setError('No market data for this coin'); setLoading(false); return; }
       const history = await fetchPriceHistory(r.id, 30).catch(() => [coin.current_price])
       onFound(analyzeCoin(coin, history))
     } catch (e) {

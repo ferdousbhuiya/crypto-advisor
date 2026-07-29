@@ -22,7 +22,7 @@ export default function FamilyPortfolio() {
       if (txs && txs.length > 0) {
         const symbols = [...new Set(txs.map((t: any) => t.asset_symbol))];
 
-        // Common symbols → CoinGecko ID (avoids fetching 15K+ list)
+        // Common symbols → CoinGecko ID
         const SYM_TO_ID: Record<string, string> = {
           BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', BNB: 'binancecoin',
           XRP: 'ripple', ADA: 'cardano', DOT: 'polkadot', DOGE: 'dogecoin',
@@ -45,36 +45,50 @@ export default function FamilyPortfolio() {
           LRC: 'loopring', ZRX: '0x', SC: 'siacoin', DGB: 'digibyte'
         };
 
-        const headers: Record<string, string> = {};
-        const cgKey = import.meta.env.VITE_COINGECKO_API_KEY || '';
-        if (cgKey) headers['x-cg-demo-api-key'] = cgKey;
-
-        try {
-          const coinIds = symbols.map((s: string) => SYM_TO_ID[s.toUpperCase()] || '').filter(Boolean).join(',');
-
-          const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=usd`, { headers });
-          const priceData: Record<string, { usd: number }> = await priceRes.json();
-
-          const livePrices: Record<string, number> = {};
-          symbols.forEach((sym: string) => {
-            const id = SYM_TO_ID[sym.toUpperCase()];
-            if (id && priceData[id]) livePrices[sym.toUpperCase()] = priceData[id].usd;
-          });
-
-          let fearGreed = 50;
+        // Check localStorage cache (5 min TTL)
+        const cacheKey = 'cg_prices';
+        let livePrices: Record<string, number> = {};
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
           try {
-            const fgRes = await fetch('https://api.alternative.me/fng/?limit=1');
-            const fgData = await fgRes.json();
-            fearGreed = parseInt(fgData.data[0].value);
-          } catch (e) { console.log("Fear/Greed fetch failed"); }
-
-          const calculated = calculatePositions(txs as Transaction[], livePrices, fearGreed);
-          setPositions(calculated);
-        } catch (err) {
-          console.error("Error fetching live prices:", err);
-          const mockLivePrices: Record<string, number> = { 'BTC': 68000, 'ETH': 3800, 'SOL': 150, 'ZEC': 30 };
-          setPositions(calculatePositions(txs as Transaction[], mockLivePrices, 50));
+            const { data, expiry } = JSON.parse(cached);
+            if (expiry > Date.now()) livePrices = data;
+          } catch { /* ignore */ }
         }
+
+        if (Object.keys(livePrices).length === 0) {
+          try {
+            const headers: Record<string, string> = {};
+            const cgKey = import.meta.env.VITE_COINGECKO_API_KEY || '';
+            if (cgKey) headers['x-cg-demo-api-key'] = cgKey;
+
+            const coinIds = symbols.map((s: string) => SYM_TO_ID[s.toUpperCase()] || '').filter(Boolean).join(',');
+            const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=usd`, { headers });
+            const priceData: Record<string, { usd: number }> = await priceRes.json();
+
+            symbols.forEach((sym: string) => {
+              const id = SYM_TO_ID[sym.toUpperCase()];
+              if (id && priceData[id]) livePrices[sym.toUpperCase()] = priceData[id].usd;
+            });
+
+            // Cache for 5 min
+            localStorage.setItem(cacheKey, JSON.stringify({ data: livePrices, expiry: Date.now() + 300_000 }));
+          } catch (err) {
+            console.error("Error fetching live prices:", err);
+            // Fallback: seed common prices
+            livePrices = { 'BTC': 63600, 'ETH': 1887, 'SOL': 72, 'ZEC': 463, 'ZCASH': 463, 'XRP': 1.07, 'ADA': 0.16, 'DOGE': 0.07, 'BNB': 568, 'LINK': 8.2, 'DOT': 4.5, 'AVAX': 18, 'MATIC': 0.3, 'XMR': 351, 'TRX': 0.32, 'STX': 1.2, 'VET': 0.02, 'FIL': 3.5, 'APT': 6.5, 'LTC': 62, 'BCH': 320 };
+          }
+        }
+
+        let fearGreed = 50;
+        try {
+          const fgRes = await fetch('https://api.alternative.me/fng/?limit=1');
+          const fgData = await fgRes.json();
+          fearGreed = parseInt(fgData.data[0].value);
+        } catch (e) { console.log("Fear/Greed fetch failed"); }
+
+        const calculated = calculatePositions(txs as Transaction[], livePrices, fearGreed);
+        setPositions(calculated);
       }
       setLoading(false);
     }
