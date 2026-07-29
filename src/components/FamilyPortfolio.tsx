@@ -16,10 +16,8 @@ export default function FamilyPortfolio() {
       if (error) {
         console.error("Error fetching transactions:", error);
       } else if (txs) {
-        // Mocked live prices for now (we will build the real API in Phase 3)
         const mockLivePrices: Record<string, number> = { 'BTC': 68000, 'ETH': 3800, 'SOL': 150 };
         const mockFearGreed = 78; 
-        
         const calculated = calculatePositions(txs as Transaction[], mockLivePrices, mockFearGreed);
         setPositions(calculated);
       }
@@ -51,7 +49,6 @@ export default function FamilyPortfolio() {
                 {pos.signal_color.toUpperCase()}
               </div>
             </div>
-
             <div className="border-t border-slate-700 pt-4 mb-4">
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Current Value</span>
@@ -64,7 +61,6 @@ export default function FamilyPortfolio() {
                 </span>
               </div>
             </div>
-
             <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
               <p className="text-xs text-slate-400 mb-1 font-semibold uppercase">Market Context & Signal:</p>
               <p className="text-sm text-slate-200">{pos.signal_text}</p>
