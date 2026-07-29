@@ -30,3 +30,5 @@ crypto-advisor-master/
 *.njsproj
 *.sln
 *.sw?
+.vercel
+.env*
