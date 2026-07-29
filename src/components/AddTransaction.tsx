@@ -51,14 +51,10 @@ export function AddTransaction() {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        alert('Not authenticated');
-        return;
-      }
+      if (!user) { alert('Not authenticated'); return; }
 
       const quantity = parseFloat(formData.quantity);
-      const price_per_unit = parseFloat(formData.price_per_unit);
+      const price_per_unit = Math.abs(parseFloat(formData.price_per_unit));
       const fiat_value = quantity * price_per_unit;
 
       const { error } = await supabase.from('transactions').insert({
@@ -75,22 +71,11 @@ export function AddTransaction() {
 
       if (error) throw error;
 
-      alert('Transaction added successfully!');
       setShowForm(false);
-      setFormData({
-        asset_symbol: '',
-        platform: '',
-        transaction_type: 'BUY',
-        quantity: '',
-        price_per_unit: '',
-        transaction_date: new Date().toISOString().split('T')[0],
-        notes: '',
-      });
-      
-      window.location.reload();
+      setTimeout(() => window.location.reload(), 300);
     } catch (error) {
       console.error('Error adding transaction:', error);
-      alert('Error adding transaction. Please try again.');
+      alert('Error: ' + (error instanceof Error ? error.message : 'Please try again.'));
     } finally {
       setLoading(false);
     }

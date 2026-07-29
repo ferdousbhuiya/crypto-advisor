@@ -61,15 +61,17 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
     }
 
     // Extract sparkline prices for indicator calculation
-    const prices: number[] = data.market_data?.sparkline_7d?.price || []
-    // If sparkline is short or empty, try market_chart
-    const history = prices.length > 2
-      ? prices
-      : await cgFetch(`/coins/${id}/market_chart?vs_currency=usd&days=30`)
-          .then(d => (d.prices || []).map((p: [number, number]) => p[1]))
-          .catch(() => [coin.current_price])
+    let prices: number[] = data.market_data?.sparkline_7d?.price || []
+    if (prices.length <= 2) {
+      try {
+        const chart = await cgFetch(`/coins/${id}/market_chart?vs_currency=usd&days=30`)
+        prices = (chart.prices || []).map((p: [number, number]) => p[1])
+      } catch { prices = [coin.current_price || 0] }
+    }
+    if (prices.length === 0) prices = [coin.current_price || 0]
 
-    return analyzeCoin(coin, history)
+    const analysis = analyzeCoin(coin, prices)
+    return analysis
   }
 
   async function pick(r: CoinSearchResult) {
