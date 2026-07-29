@@ -22,9 +22,10 @@ export default function FamilyPortfolio() {
       if (txs && txs.length > 0) {
         const symbols = [...new Set(txs.map((t: any) => t.asset_symbol))];
 
-        // Common symbols → CoinGecko ID
+        // Common symbols → CoinGecko ID (includes alternate names)
         const SYM_TO_ID: Record<string, string> = {
-          BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', BNB: 'binancecoin',
+          BTC: 'bitcoin', ETH: 'ethereum', ETHORIUM: 'ethereum', ETHER: 'ethereum',
+          SOL: 'solana', BNB: 'binancecoin',
           XRP: 'ripple', ADA: 'cardano', DOT: 'polkadot', DOGE: 'dogecoin',
           AVAX: 'avalanche-2', MATIC: 'matic-network', LINK: 'chainlink',
           UNI: 'uniswap', ATOM: 'cosmos', LTC: 'litecoin', BCH: 'bitcoin-cash',
@@ -42,7 +43,13 @@ export default function FamilyPortfolio() {
           THETA: 'theta-token', TFUEL: 'theta-fuel', AR: 'arweave',
           HNT: 'helium', BAT: 'basic-attention-token', ZIL: 'zilliqa',
           WAVES: 'waves', ONT: 'ontology', ICX: 'icon', OMG: 'omisego',
-          LRC: 'loopring', ZRX: '0x', SC: 'siacoin', DGB: 'digibyte'
+          LRC: 'loopring', ZRX: '0x', SC: 'siacoin', DGB: 'digibyte',
+          USDT: 'tether', USDC: 'usd-coin', DAI: 'dai', PEPE: 'pepe',
+          BONK: 'bonk', INJ: 'injective-protocol', SEI: 'sei-network',
+          TIA: 'celestia', SUI: 'sui', OP: 'optimism', ARB: 'arbitrum',
+          AERO: 'aerodrome-finance', JUP: 'jupiter-exchange-solana',
+          WIF: 'dogwifcoin', FLOKI: 'floki', ENS: 'ethereum-name-service',
+          ENA: 'ethena', PENDLE: 'pendle', STRK: 'starknet'
         };
 
         // Check localStorage cache (5 min TTL)
@@ -61,6 +68,17 @@ export default function FamilyPortfolio() {
             const headers: Record<string, string> = {};
             const cgKey = import.meta.env.VITE_COINGECKO_API_KEY || '';
             if (cgKey) headers['x-cg-demo-api-key'] = cgKey;
+
+            // Resolve unknown symbols via search API
+            const unknownSymbols = symbols.filter((s: string) => !SYM_TO_ID[s.toUpperCase()]);
+            for (const sym of unknownSymbols) {
+              try {
+                const searchRes = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(sym)}`, { headers });
+                const searchData = await searchRes.json();
+                const match = searchData.coins?.[0];
+                if (match) SYM_TO_ID[sym.toUpperCase()] = match.id;
+              } catch { /* ignore search failures */ }
+            }
 
             const coinIds = symbols.map((s: string) => SYM_TO_ID[s.toUpperCase()] || '').filter(Boolean).join(',');
             const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=usd`, { headers });
@@ -108,7 +126,8 @@ export default function FamilyPortfolio() {
               <div>
                 <h3 className="text-2xl font-bold text-white">{pos.asset_symbol}</h3>
                 <p className="text-slate-400 text-sm">Platform: {pos.platform || 'Unknown'}</p>
-                <p className="text-slate-400 text-sm">Holdings: {pos.total_quantity.toFixed(6)}</p>
+                <p className="text-slate-400 text-sm">Holdings: {pos.total_quantity.toFixed(6)} tokens</p>
+                <p className="text-slate-400 text-sm">Total Invested: ${pos.total_invested_fiat.toFixed(2)}</p>
               </div>
               <div className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
                 pos.signal_color === 'lime' ? 'bg-lime-900/50 text-lime-300 border border-lime-600' :
