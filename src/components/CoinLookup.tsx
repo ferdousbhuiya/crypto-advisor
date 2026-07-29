@@ -1,15 +1,20 @@
 import { useEffect, useState, useRef } from 'react'
-import { searchCoins, type CoinSearchResult, type CoinMarket } from '../lib/coingecko'
+import { type CoinSearchResult, type CoinMarket } from '../lib/coingecko'
 import { analyzeCoin, type CoinAnalysis } from '../lib/scoring'
 
-const cgHeaders: Record<string, string> = {}
 const cgKey = import.meta.env.VITE_COINGECKO_API_KEY || ''
-if (cgKey) cgHeaders['x-cg-demo-api-key'] = cgKey
+const cgParam = cgKey ? `&x_cg_demo_api_key=${cgKey}` : ''
 
 async function cgFetch(path: string) {
-  const r = await fetch(`https://api.coingecko.com/api/v3${path}`, { headers: cgHeaders })
+  const r = await fetch(`https://api.coingecko.com/api/v3${path}${cgParam}`)
   if (!r.ok) throw new Error(`CoinGecko ${r.status}`)
   return r.json()
+}
+
+async function searchCoin(query: string) {
+  const r = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}${cgParam}`)
+  const d = await r.json()
+  return (d.coins || []).slice(0, 8) as CoinSearchResult[]
 }
 
 export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) {
@@ -26,21 +31,17 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
     }
     let cancelled = false
     const t = setTimeout(() => {
-      searchCoins(query).then((r) => {
+      searchCoin(query).then((r) => {
         if (!cancelled) setResults(r)
       })
     }, 400)
-    return () => {
-      cancelled = true
-      clearTimeout(t)
-    }
+    return () => { cancelled = true; clearTimeout(t) }
   }, [query])
 
   async function fetchCoinDetail(id: string) {
     const data = await cgFetch(`/coins/${id}?localization=false&tickers=false&community_data=true&developer_data=false&sparkline=true`)
     if (!data?.id) throw new Error('Coin not found')
 
-    // Build a CoinMarket-like object from the detail endpoint
     const coin: CoinMarket = {
       id: data.id,
       symbol: data.symbol,
@@ -60,7 +61,6 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
       ath_change_percentage: data.market_data?.ath_change_percentage?.usd ?? 0,
     }
 
-    // Extract sparkline prices for indicator calculation
     let prices: number[] = data.market_data?.sparkline_7d?.price || []
     if (prices.length <= 2) {
       try {
@@ -70,8 +70,7 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
     }
     if (prices.length === 0) prices = [coin.current_price || 0]
 
-    const analysis = analyzeCoin(coin, prices)
-    return analysis
+    return analyzeCoin(coin, prices)
   }
 
   async function pick(r: CoinSearchResult) {
@@ -83,6 +82,10 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
       const analysis = await fetchCoinDetail(r.id)
       onFound(analysis)
       setResults([])
+      // Scroll to the analysis section
+      setTimeout(() => {
+        document.querySelector('.coin-detail-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Lookup failed — try again later')
     } finally {
@@ -99,15 +102,16 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
           value={query}
           onChange={(e) => { pickedRef.current = false; setQuery(e.target.value) }}
           placeholder="Search coin (e.g. dogecoin)"
-          className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm w-full"
+          className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm w-full text-white placeholder-slate-400"
+          autoComplete="off"
         />
         {results.length > 0 && !loading && (
-          <ul className="absolute z-10 bg-slate-800 border border-slate-700 rounded mt-1 w-full max-h-48 overflow-y-auto">
+          <ul className="absolute z-10 bg-slate-800 border border-slate-700 rounded mt-1 w-full max-h-48 overflow-y-auto shadow-xl">
             {results.map((r) => (
               <li
                 key={r.id}
                 onClick={() => pick(r)}
-                className="px-2 py-1 text-sm hover:bg-slate-700 cursor-pointer flex items-center gap-2"
+                className="px-2 py-1.5 text-sm hover:bg-slate-700 cursor-pointer flex items-center gap-2 text-white"
               >
                 <img src={r.thumb} alt="" className="w-4 h-4" />
                 {r.name} <span className="text-slate-500">{r.symbol.toUpperCase()}</span>

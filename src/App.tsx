@@ -218,7 +218,7 @@ function App() {
               </table>
             </div>
           )}
-          {selected && <CoinDetail a={selected} />}
+          <div className="coin-detail-section">{selected && <CoinDetail a={selected} />}</div>
         </div>
       </div>
     </div>
