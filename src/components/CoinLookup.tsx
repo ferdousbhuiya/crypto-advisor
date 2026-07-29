@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { fetchMarketsByIds, fetchPriceHistory, searchCoins, type CoinSearchResult } from '../lib/coingecko'
 import { analyzeCoin, type CoinAnalysis } from '../lib/scoring'
 
@@ -7,10 +7,11 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
   const [results, setResults] = useState<CoinSearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const pickedRef = useRef(false)
 
   useEffect(() => {
-    if (!query.trim()) {
-      setResults([])
+    if (!query.trim() || pickedRef.current) {
+      if (!query.trim()) setResults([])
       return
     }
     let cancelled = false
@@ -26,7 +27,7 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
   }, [query])
 
   async function pick(r: CoinSearchResult) {
-    setResults([])
+    pickedRef.current = true
     setQuery(r.name)
     setError(null)
     setLoading(true)
@@ -39,6 +40,8 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
       setError(e instanceof Error ? e.message : 'Lookup failed')
     } finally {
       setLoading(false)
+      setResults([])
+      pickedRef.current = false
     }
   }
 
@@ -48,11 +51,11 @@ export function CoinLookup({ onFound }: { onFound: (a: CoinAnalysis) => void }) 
       <div className="relative w-full sm:w-64">
         <input
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => { pickedRef.current = false; setQuery(e.target.value) }}
           placeholder="Search coin (e.g. dogecoin)"
           className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm w-full"
         />
-        {results.length > 0 && (
+        {results.length > 0 && !loading && (
           <ul className="absolute z-10 bg-slate-800 border border-slate-700 rounded mt-1 w-full max-h-48 overflow-y-auto">
             {results.map((r) => (
               <li
