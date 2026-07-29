@@ -21,31 +21,44 @@ export default function FamilyPortfolio() {
 
       if (txs && txs.length > 0) {
         const symbols = [...new Set(txs.map((t: any) => t.asset_symbol))];
+
+        // Common symbols → CoinGecko ID (avoids fetching 15K+ list)
+        const SYM_TO_ID: Record<string, string> = {
+          BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', BNB: 'binancecoin',
+          XRP: 'ripple', ADA: 'cardano', DOT: 'polkadot', DOGE: 'dogecoin',
+          AVAX: 'avalanche-2', MATIC: 'matic-network', LINK: 'chainlink',
+          UNI: 'uniswap', ATOM: 'cosmos', LTC: 'litecoin', BCH: 'bitcoin-cash',
+          ALGO: 'algorand', FIL: 'filecoin', TRX: 'tron', XLM: 'stellar',
+          VET: 'vechain', ICP: 'internet-computer', NEAR: 'near', APT: 'aptos',
+          ZEC: 'zcash', ZEN: 'zencash', DASH: 'dash', ETC: 'ethereum-classic',
+          XMR: 'monero', YFI: 'yearn-finance', SNX: 'synthetix-network-token',
+          MKR: 'maker', AAVE: 'aave', COMP: 'compound-governance-token',
+          SUSHI: 'sushi', CRV: 'curve-dao-token', '1INCH': '1inch',
+          ENJ: 'enjincoin', MANA: 'decentraland', SAND: 'the-sandbox',
+          AXS: 'axie-infinity', SHIB: 'shiba-inu', FTM: 'fantom',
+          HBAR: 'hedera-hashgraph', EOS: 'eos', NEO: 'neo', IOTA: 'iota',
+          XTZ: 'tezos', RUNE: 'thorchain', KSM: 'kusama', FLOW: 'flow',
+          STX: 'stacks', QNT: 'quant-network', CHZ: 'chiliz', GALA: 'gala',
+          THETA: 'theta-token', TFUEL: 'theta-fuel', AR: 'arweave',
+          HNT: 'helium', BAT: 'basic-attention-token', ZIL: 'zilliqa',
+          WAVES: 'waves', ONT: 'ontology', ICX: 'icon', OMG: 'omisego',
+          LRC: 'loopring', ZRX: '0x', SC: 'siacoin', DGB: 'digibyte'
+        };
+
         const headers: Record<string, string> = {};
         const cgKey = import.meta.env.VITE_COINGECKO_API_KEY || '';
         if (cgKey) headers['x-cg-demo-api-key'] = cgKey;
 
         try {
-          // Fetch symbol → CoinGecko ID mapping (cached in session)
-          const listRes = await fetch('https://api.coingecko.com/api/v3/coins/list', { headers });
-          const allCoins: { id: string; symbol: string }[] = await listRes.json();
-          const symToId: Record<string, string> = {};
-          allCoins.forEach((c: any) => {
-            const key = c.symbol.toUpperCase();
-            if (!symToId[key]) symToId[key] = c.id; // first match wins
-          });
+          const coinIds = symbols.map((s: string) => SYM_TO_ID[s.toUpperCase()] || '').filter(Boolean).join(',');
 
-          // Resolve symbols → IDs
-          const coinIds = symbols.map((s: string) => symToId[s.toUpperCase()] || '').filter(Boolean).join(',');
-
-          // Fetch live prices by ID
           const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=usd`, { headers });
           const priceData: Record<string, { usd: number }> = await priceRes.json();
 
-          // Build symbol→price map using reverse lookup
           const livePrices: Record<string, number> = {};
-          Object.entries(symToId).forEach(([sym, id]) => {
-            if (priceData[id]) livePrices[sym] = priceData[id].usd;
+          symbols.forEach((sym: string) => {
+            const id = SYM_TO_ID[sym.toUpperCase()];
+            if (id && priceData[id]) livePrices[sym.toUpperCase()] = priceData[id].usd;
           });
 
           let fearGreed = 50;
@@ -83,12 +96,14 @@ export default function FamilyPortfolio() {
                 <p className="text-slate-400 text-sm">Platform: {pos.platform || 'Unknown'}</p>
                 <p className="text-slate-400 text-sm">Holdings: {pos.total_quantity.toFixed(6)}</p>
               </div>
-              <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+              <div className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
+                pos.signal_color === 'lime' ? 'bg-lime-900/50 text-lime-300 border border-lime-600' :
                 pos.signal_color === 'green' ? 'bg-green-900/50 text-green-400 border border-green-700' :
+                pos.signal_color === 'orange' ? 'bg-orange-900/50 text-orange-300 border border-orange-600' :
                 pos.signal_color === 'red' ? 'bg-red-900/50 text-red-400 border border-red-700' :
                 'bg-yellow-900/50 text-yellow-400 border border-yellow-700'
               }`}>
-                {pos.signal_color.toUpperCase()}
+                {pos.signal_label}
               </div>
             </div>
 
