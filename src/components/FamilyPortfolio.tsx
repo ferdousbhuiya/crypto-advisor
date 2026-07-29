@@ -30,7 +30,7 @@ export default function FamilyPortfolio() {
           UNI: 'uniswap', ATOM: 'cosmos', LTC: 'litecoin', BCH: 'bitcoin-cash',
           ALGO: 'algorand', FIL: 'filecoin', TRX: 'tron', XLM: 'stellar',
           VET: 'vechain', ICP: 'internet-computer', NEAR: 'near', APT: 'aptos',
-          ZEC: 'zcash', ZEN: 'zencash', DASH: 'dash', ETC: 'ethereum-classic',
+          ZEC: 'zcash', ZCASH: 'zcash', ZEN: 'zencash', DASH: 'dash', ETC: 'ethereum-classic',
           XMR: 'monero', YFI: 'yearn-finance', SNX: 'synthetix-network-token',
           MKR: 'maker', AAVE: 'aave', COMP: 'compound-governance-token',
           SUSHI: 'sushi', CRV: 'curve-dao-token', '1INCH': '1inch',
@@ -103,7 +103,7 @@ export default function FamilyPortfolio() {
                 pos.signal_color === 'red' ? 'bg-red-900/50 text-red-400 border border-red-700' :
                 'bg-yellow-900/50 text-yellow-400 border border-yellow-700'
               }`}>
-                {pos.signal_label}
+                {pos.signal_label_bn}
               </div>
             </div>
 

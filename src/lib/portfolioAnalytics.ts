@@ -1,5 +1,14 @@
 import type { Transaction } from './supabase';
 
+const BN_LABELS: Record<string, string> = {
+  'STRONG BUY': '❗জোরালো কিনুন',
+  'BUY': '✅ কিনুন',
+  'ACCUMULATE': '📥 জমাতে থাকুন',
+  'HOLD': '⏸️ অপেক্ষা করুন',
+  'SELL': '⚠️ বিক্রি করুন',
+  'STRONG SELL': '🔴 এখনই বিক্রি করুন',
+};
+
 export interface PositionData {
   asset_symbol: string;
   platform: string;
@@ -11,6 +20,7 @@ export interface PositionData {
   unrealized_pnl_usd: number;
   unrealized_pnl_percent: number;
   signal_label: 'STRONG BUY' | 'BUY' | 'ACCUMULATE' | 'HOLD' | 'SELL' | 'STRONG SELL';
+  signal_label_bn: string;
   signal_color: 'green' | 'yellow' | 'red' | 'lime' | 'orange';
   signal_text: string;
 }
@@ -111,6 +121,7 @@ export function calculatePositions(
       unrealized_pnl_usd: pnlUsd,
       unrealized_pnl_percent: pnlPercent,
       signal_label,
+      signal_label_bn: (BN_LABELS[signal_label] ?? signal_label) as string,
       signal_color,
       signal_text
     };
