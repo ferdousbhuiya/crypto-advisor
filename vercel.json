@@ -1,5 +1,18 @@
 {
+  "version": 2,
   "buildCommand": "npm run build",
+  "devCommand": "vercel dev",
+  "framework": "vite",
+  "installCommand": "npm install",
   "outputDirectory": "dist",
-  "framework": "vite"
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
